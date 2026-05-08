@@ -102,7 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </div>
-          <button className="nav-link" onClick={handleLogout} style={{ color: 'rgba(255,255,255,.6)', fontSize: 13 }}>
+          <button className="nav-link logout-button" onClick={handleLogout}>
             <LogOut size={15} />
             Sair
           </button>

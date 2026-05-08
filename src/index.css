@@ -106,6 +106,30 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 }
 .sidebar-nav a svg, .sidebar-nav button.nav-link svg { flex-shrink: 0; opacity: .85; }
 
+/* Logout button in the footer: pill-shaped, rounded and friendly */
+.sidebar-footer button.logout-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, .12);
+  color: #FCA5A5;
+  border: 1px solid rgba(220, 38, 38, .22);
+  font-size: 13px;
+  font-weight: 600;
+  width: auto;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  transition: all var(--transition);
+}
+.sidebar-footer button.logout-button:hover {
+  background: rgba(220, 38, 38, .22);
+  color: white;
+  transform: translateY(-1px);
+  border-color: rgba(248, 113, 113, .4);
+}
+.sidebar-footer button.logout-button svg { opacity: 1; }
+
 .sidebar-footer {
   padding: 12px 10px;
   border-top: 1px solid rgba(255,255,255,.12);
