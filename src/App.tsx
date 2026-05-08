@@ -9,7 +9,17 @@ import { AdminDashboard, ParoquiasPage } from './pages/admin/index';
 import { DashboardParoquial, CEBsPage, PastoraisPage, ConfiguracoesParoquialPage, RelatoriosParoquialPage } from './pages/paroquial/index';
 import { DashboardCEB, DoacoesPage, DizimistasPage, ConselheirosPage } from './pages/cebs/index';
 import { seedInitialData } from './utils/seed';
+import { initializeBackend, getBackendType } from './utils/backend';
 import './index.css';
+
+// Inicializa o backend (Supabase ou LocalStorage)
+initializeBackend().then((connected) => {
+  const backend = getBackendType();
+  console.log(`✓ Backend inicializado: ${backend}`);
+});
+
+// Se Supabase não estiver configurado, usa dados locais
+seedInitialData();
 
 function ProtectedRoute({ children, role }: { children: React.ReactNode; role: 'admin' | 'paroquial' | 'ceb' }) {
   const { isAuthenticated, user, loading } = useAuth();

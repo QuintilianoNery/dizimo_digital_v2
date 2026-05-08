@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: supabase_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./supabase.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - supabase
+
+  # Supabase REST API
+  rest:
+    image: postgrest/postgrest:latest
+    container_name: supabase_rest
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgres://postgres:postgres@postgres:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: postgres
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    networks:
+      - supabase
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  supabase:
+    driver: bridge
