@@ -189,10 +189,10 @@ export function LoginPage() {
     navigate('/cebs/dashboard');
   };
 
-  function DropdownSearch({ value, onChange, onSelect, options, label, open, onToggle, placeholder }: {
+  function DropdownSearch({ value, onChange, onSelect, options, label, open, setOpen, placeholder }: {
     value: string; onChange: (v: string) => void; onSelect: (item: any) => void;
     options: { id: string; label: string; sub: string }[]; label: string;
-    open: boolean; onToggle: () => void; placeholder: string;
+    open: boolean; setOpen: (open: boolean) => void; placeholder: string;
   }) {
     return (
       <div className="form-group" style={{ position: 'relative' }}>
@@ -201,8 +201,9 @@ export function LoginPage() {
           <input
             className="form-input"
             value={value}
-            onChange={(e) => { onChange(e.target.value); onToggle(); }}
-            onFocus={onToggle}
+            onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            onClick={() => setOpen(true)}
             placeholder={placeholder}
             style={{ paddingRight: 32 }}
           />
@@ -211,7 +212,7 @@ export function LoginPage() {
         {open && options.length > 0 && (
           <div style={{ position: 'absolute', zIndex: 100, top: '100%', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-md)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
             {options.map((opt) => (
-              <button key={opt.id} onClick={() => { onSelect(opt); onChange(opt.label); onToggle(); }}
+              <button type="button" key={opt.id} onClick={() => { onSelect(opt); onChange(opt.label); setOpen(false); }}
                 style={{ width: '100%', padding: '10px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={{ fontSize: 13, fontWeight: 500 }}>{opt.label}</span>
                 <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{opt.sub}</span>
@@ -275,7 +276,7 @@ export function LoginPage() {
                 onSelect={(opt) => setPSelected(paroquias.find((p) => p.id === opt.id) ?? null)}
                 options={filteredPar.map((p) => ({ id: p.id, label: p.nome, sub: `Código: ${p.codigoParoquia}` }))}
                 open={pDropOpen}
-                onToggle={() => setPDropOpen(!pDropOpen)}
+                setOpen={setPDropOpen}
                 placeholder="Digite o nome ou código"
               />
               <div className="form-group">
@@ -302,7 +303,7 @@ export function LoginPage() {
                 onSelect={(opt) => { setCPSelected(paroquias.find((p) => p.id === opt.id) ?? null); setCSelected(null); setCSearch(''); }}
                 options={filteredCPar.map((p) => ({ id: p.id, label: p.nome, sub: `Código: ${p.codigoParoquia}` }))}
                 open={cPDropOpen}
-                onToggle={() => setCPDropOpen(!cPDropOpen)}
+                setOpen={setCPDropOpen}
                 placeholder="Digite o nome ou código"
               />
               <DropdownSearch
@@ -312,7 +313,7 @@ export function LoginPage() {
                 onSelect={(opt) => setCSelected(cebsForParoquia.find((c) => c.id === opt.id) ?? null)}
                 options={filteredCebs.map((c) => ({ id: c.id, label: c.nome, sub: `Código: ${c.codigoCeb}` }))}
                 open={cDropOpen}
-                onToggle={() => { if (cPSelected) setCDropOpen(!cDropOpen); }}
+                setOpen={(open) => { if (cPSelected) setCDropOpen(open); }}
                 placeholder={cPSelected ? 'Selecione a CEB' : 'Primeiro selecione a paróquia'}
               />
               <div className="form-group">
