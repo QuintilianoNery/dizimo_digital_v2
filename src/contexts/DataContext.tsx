@@ -336,8 +336,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     (emailAtual: string, senhaAtual: string, updates: { nome?: string; email?: string; logoUrl?: string; senhaNova?: string }): string | null => {
       const admins = storageGet<Administrador>(KEYS.ADMIN);
       const admin = admins[0];
-      if (!admin || admin.email !== emailAtual || admin.senha !== senhaAtual) {
-        return 'Email ou senha atual incorretos';
+      if (!admin) return 'Administrador não encontrado';
+      const emailChanged = updates.email !== undefined && updates.email !== admin.email;
+      const passwordChangeRequested = !!updates.senhaNova;
+      // If changing email or password, require current credentials
+      if (emailChanged || passwordChangeRequested) {
+        if (admin.email !== emailAtual || admin.senha !== senhaAtual) {
+          return 'Email ou senha atual incorretos';
+        }
       }
 
       admins[0] = {
@@ -365,11 +371,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     (paroquiaId: string, senhaAtual: string, updates: { logoUrl?: string; senhaNova?: string }): string | null => {
       const paroquias = storageGet<Paroquia>(KEYS.PAROQUIAS);
       const idx = paroquias.findIndex((p) => p.id === paroquiaId);
-      if (idx < 0 || paroquias[idx].senha !== senhaAtual) {
-        return 'Senha atual incorreta';
+      if (idx < 0) return 'Paróquia não encontrada';
+      const current = paroquias[idx];
+      const passwordChangeRequested = !!updates.senhaNova;
+      if (passwordChangeRequested) {
+        if (current.senha !== senhaAtual) return 'Senha atual incorreta';
       }
       paroquias[idx] = {
-        ...paroquias[idx],
+        ...current,
         ...(updates.logoUrl !== undefined ? { logoUrl: updates.logoUrl } : {}),
         ...(updates.senhaNova ? { senha: updates.senhaNova } : {}),
         updatedAt: new Date().toISOString(),
@@ -384,11 +393,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     (cebId: string, senhaAtual: string, updates: { logoUrl?: string; senhaNova?: string }): string | null => {
       const cebs = storageGet<CEB>(KEYS.CEBS);
       const idx = cebs.findIndex((c) => c.id === cebId);
-      if (idx < 0 || cebs[idx].senha !== senhaAtual) {
-        return 'Senha atual incorreta';
+      if (idx < 0) return 'CEB não encontrada';
+      const current = cebs[idx];
+      const passwordChangeRequested = !!updates.senhaNova;
+      if (passwordChangeRequested) {
+        if (current.senha !== senhaAtual) return 'Senha atual incorreta';
       }
       cebs[idx] = {
-        ...cebs[idx],
+        ...current,
         ...(updates.logoUrl !== undefined ? { logoUrl: updates.logoUrl } : {}),
         ...(updates.senhaNova ? { senha: updates.senhaNova } : {}),
         updatedAt: new Date().toISOString(),

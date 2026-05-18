@@ -394,12 +394,13 @@ export function ConfiguracoesParoquialPage() {
   };
 
   const handleProfileSave = async () => {
-    if (!profileForm.senhaAtual.trim()) {
-      showToast('Informe a senha atual para salvar as alterações', 'error');
+    const passwordChangeRequested = !!profileForm.senhaNova;
+    if (passwordChangeRequested && profileForm.senhaNova !== profileForm.confirmSenha) {
+      showToast('As novas senhas não conferem', 'error');
       return;
     }
-    if (profileForm.senhaNova && profileForm.senhaNova !== profileForm.confirmSenha) {
-      showToast('As novas senhas não conferem', 'error');
+    if (passwordChangeRequested && !profileForm.senhaAtual.trim()) {
+      showToast('Informe a senha atual para salvar as alterações', 'error');
       return;
     }
     const err = updateParoquiaConta(paroquiaId, profileForm.senhaAtual, {
@@ -533,12 +534,13 @@ export function ConfiguracoesCEBPage() {
   });
 
   const handleSave = () => {
-    if (!form.senhaAtual.trim()) {
-      showToast('Informe a senha atual para salvar as alterações', 'error');
+    const passwordChangeRequested = !!form.senhaNova;
+    if (passwordChangeRequested && form.senhaNova !== form.confirmSenha) {
+      showToast('As novas senhas não conferem', 'error');
       return;
     }
-    if (form.senhaNova && form.senhaNova !== form.confirmSenha) {
-      showToast('As novas senhas não conferem', 'error');
+    if (passwordChangeRequested && !form.senhaAtual.trim()) {
+      showToast('Informe a senha atual para salvar as alterações', 'error');
       return;
     }
     const err = updateCEBConta(cebId, form.senhaAtual, {

@@ -62,6 +62,16 @@ export function AdminLoginPage() {
       </div>
       <div className="auth-form-area">
         <div className="auth-form-card">
+          <div className="auth-card-mobile-logo">
+            <LogoMark
+              src={admin?.logoUrl}
+              alt="Logo administrativa"
+              size={120}
+              radius={22}
+              fallback={<Heart size={40} color="white" fill="white" />}
+              background={admin?.logoUrl ? 'transparent' : 'var(--accent)'}
+            />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <div style={{ width: 36, height: 36, background: 'var(--primary-light)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Shield size={18} color="var(--primary)" />
@@ -119,7 +129,7 @@ export function AdminLoginPage() {
 // ── PAROQUIAL / CEB LOGIN ──────────────────────────────────────────────────
 export function LoginPage() {
   const { loginParoquial, loginCEB, isAuthenticated, user } = useAuth();
-  const { getParoquias, getCEBs } = useData();
+  const { getParoquias, getCEBs, getAdministrador } = useData();
   const navigate = useNavigate();
   const [tab, setTab] = useState<'paroquial' | 'ceb'>('paroquial');
 
@@ -156,7 +166,10 @@ export function LoginPage() {
     c.nome.toLowerCase().includes(cSearch.toLowerCase()) || c.codigoCeb.includes(cSearch),
   );
 
-  const selectedLoginLogo = tab === 'paroquial' ? pSelected?.logoUrl : cSelected?.logoUrl;
+  const admin = getAdministrador();
+  const selectedLoginLogo = tab === 'paroquial'
+    ? (pSelected?.logoUrl ?? admin?.logoUrl)
+    : (cSelected?.logoUrl ?? cPSelected?.logoUrl ?? admin?.logoUrl);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -243,12 +256,12 @@ export function LoginPage() {
     <div className="auth-shell">
       <div className="auth-brand">
         <LogoMark
-          src={pSelected?.logoUrl ?? cPSelected?.logoUrl}
+          src={pSelected?.logoUrl ?? cPSelected?.logoUrl ?? admin?.logoUrl}
           alt="Marca institucional"
           size={72}
           radius={20}
-          fallback={<Heart size={32} color="white" fill="white" />}
-          background={pSelected?.logoUrl || cPSelected?.logoUrl ? 'transparent' : 'var(--accent)'}
+          fallback={<Building2 size={32} color="white" />}
+          background={pSelected?.logoUrl || cPSelected?.logoUrl || admin?.logoUrl ? 'transparent' : 'var(--accent)'}
         />
         <h1>Dízimo Digital</h1>
         <p>Gestão de dízimos, doações e ofertas das comunidades eclesiais de base.</p>
@@ -270,21 +283,20 @@ export function LoginPage() {
 
       <div className="auth-form-area">
         <div className="auth-form-card">
-          <h2>Bem-vindo</h2>
-          <p className="auth-subtitle">Selecione sua área de acesso e faça login</p>
-
           {selectedLoginLogo && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
               <LogoMark
                 src={selectedLoginLogo}
                 alt="Logo selecionada"
-                size={72}
-                radius={18}
-                fallback={<Heart size={28} color="white" fill="white" />}
+                size={120}
+                radius={22}
+                fallback={<Heart size={40} color="white" fill="white" />}
                 background="transparent"
               />
             </div>
           )}
+          <h2>Bem-vindo</h2>
+          <p className="auth-subtitle">Selecione sua área de acesso e faça login</p>
 
           <div className="tab-switcher">
             <button className={tab === 'paroquial' ? 'active' : ''} onClick={() => { setTab('paroquial'); setError(''); }}>
@@ -303,7 +315,11 @@ export function LoginPage() {
                 label="Paróquia"
                 value={pSearch}
                 onChange={setPSearch}
-                onSelect={(opt) => setPSelected(paroquias.find((p) => p.id === opt.id) ?? null)}
+                onSelect={(opt) => {
+                  const sel = paroquias.find((p) => p.id === opt.id) ?? null;
+                  setPSelected(sel);
+                  if (sel && pRemember) storageSet('remember_login', { type: 'paroquial', paroquiaId: sel.id });
+                }}
                 options={filteredPar.map((p) => ({ id: p.id, label: p.nome, sub: `Código: ${p.codigoParoquia}` }))}
                 open={pDropOpen}
                 setOpen={setPDropOpen}
@@ -319,7 +335,7 @@ export function LoginPage() {
                 </div>
               </div>
               <label className="form-check" style={{ marginBottom: 20 }}>
-                <input type="checkbox" checked={pRemember} onChange={(e) => setPRemember(e.target.checked)} />
+                <input type="checkbox" checked={pRemember} onChange={(e) => { setPRemember(e.target.checked); if (e.target.checked && pSelected) storageSet('remember_login', { type: 'paroquial', paroquiaId: pSelected.id }); }} />
                 <span>Lembrar paróquia selecionada</span>
               </label>
               <button className="btn btn-primary btn-full btn-lg" onClick={handleParoquialLogin}>Entrar</button>
@@ -330,7 +346,13 @@ export function LoginPage() {
                 label="Paróquia"
                 value={cPSearch}
                 onChange={setCPSearch}
-                onSelect={(opt) => { setCPSelected(paroquias.find((p) => p.id === opt.id) ?? null); setCSelected(null); setCSearch(''); }}
+                onSelect={(opt) => {
+                  const sel = paroquias.find((p) => p.id === opt.id) ?? null;
+                  setCPSelected(sel);
+                  setCSelected(null);
+                  setCSearch('');
+                  if (sel && cRemember) storageSet('remember_login', { type: 'ceb', paroquiaId: sel.id });
+                }}
                 options={filteredCPar.map((p) => ({ id: p.id, label: p.nome, sub: `Código: ${p.codigoParoquia}` }))}
                 open={cPDropOpen}
                 setOpen={setCPDropOpen}
@@ -340,7 +362,11 @@ export function LoginPage() {
                 label="Comunidade (CEB)"
                 value={cSearch}
                 onChange={setCSearch}
-                onSelect={(opt) => setCSelected(cebsForParoquia.find((c) => c.id === opt.id) ?? null)}
+                onSelect={(opt) => {
+                  const sel = cebsForParoquia.find((c) => c.id === opt.id) ?? null;
+                  setCSelected(sel);
+                  if (sel && cRemember && cPSelected) storageSet('remember_login', { type: 'ceb', paroquiaId: cPSelected.id, cebId: sel.id });
+                }}
                 options={filteredCebs.map((c) => ({ id: c.id, label: c.nome, sub: `Código: ${c.codigoCeb}` }))}
                 open={cDropOpen}
                 setOpen={(open) => { if (cPSelected) setCDropOpen(open); }}
@@ -356,7 +382,7 @@ export function LoginPage() {
                 </div>
               </div>
               <label className="form-check" style={{ marginBottom: 20 }}>
-                <input type="checkbox" checked={cRemember} onChange={(e) => setCRemember(e.target.checked)} />
+                <input type="checkbox" checked={cRemember} onChange={(e) => { setCRemember(e.target.checked); if (e.target.checked && cSelected && cPSelected) storageSet('remember_login', { type: 'ceb', paroquiaId: cPSelected.id, cebId: cSelected.id }); }} />
                 <span>Lembrar paróquia e CEB selecionadas</span>
               </label>
               <button className="btn btn-primary btn-full btn-lg" onClick={handleCEBLogin}>Entrar</button>

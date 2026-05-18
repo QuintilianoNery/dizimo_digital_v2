@@ -305,12 +305,14 @@ export function ConfiguracoesAdminPage() {
   };
 
   const handleSave = () => {
-    if (!form.senhaAtual.trim()) {
-      showToast('Informe a senha atual para salvar as alterações', 'error');
+    const emailChanged = form.email !== admin?.email;
+    const passwordChangeRequested = !!form.senhaNova;
+    if (passwordChangeRequested && form.senhaNova !== form.confirmarSenha) {
+      showToast('As novas senhas não conferem', 'error');
       return;
     }
-    if (form.senhaNova && form.senhaNova !== form.confirmarSenha) {
-      showToast('As novas senhas não conferem', 'error');
+    if ((emailChanged || passwordChangeRequested) && !form.senhaAtual.trim()) {
+      showToast('Informe a senha atual para salvar as alterações', 'error');
       return;
     }
     const err = updateAdministrador(admin?.email ?? form.email, form.senhaAtual, {

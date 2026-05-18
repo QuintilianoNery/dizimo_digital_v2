@@ -239,6 +239,11 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
   width: 100%;
   max-width: 420px;
 }
+.auth-card-mobile-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 18px;
+}
 .auth-form-card h2 {
   font-size: 22px;
   font-weight: 700;
@@ -576,6 +581,7 @@ tbody tr:hover { background: var(--surface2); }
   .auth-brand { display: none; }
   .auth-form-area { padding: 24px 16px; }
   .auth-form-card { max-width: 100%; }
+  .auth-card-mobile-logo { display: flex; }
   .sidebar-toggle { display: inline-flex; }
   .top-bar {
     padding: 0 16px;

@@ -83,8 +83,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const adminLogo = admin?.logoUrl;
   const paroquiaLogo = paroquia?.logoUrl;
   const cebLogo = ceb?.logoUrl;
-  const shellLogo = user?.role === 'admin' ? adminLogo : paroquiaLogo;
-  const avatarLogo = user?.role === 'admin' ? adminLogo : user?.role === 'paroquial' ? paroquiaLogo : cebLogo;
+  const shellLogo = user?.role === 'admin'
+    ? adminLogo
+    : (paroquia?.logoUrl ?? ceb?.logoUrl ?? adminLogo);
+  const avatarLogo = user?.role === 'admin'
+    ? (adminLogo ?? null)
+    : user?.role === 'paroquial'
+      ? (paroquiaLogo ?? adminLogo)
+      : (cebLogo ?? paroquiaLogo ?? adminLogo);
   const initials = userLabel.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
@@ -100,12 +106,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             fallback={<Heart size={18} color="white" fill="white" />}
             background={user?.role === 'admin' ? 'rgba(255,255,255,.15)' : 'var(--accent)'}
           />
-          <div>
-            {paroquia?.logoUrl ? (
-              <img src={paroquia.logoUrl} alt="Logo" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover', marginBottom: 2 }} />
-            ) : null}
+          <div style={{ marginLeft: 8 }}>
             <div className="sidebar-logo-text">Dízimo Digital</div>
-            <div className="sidebar-logo-sub">{user?.role === 'admin' ? 'Admin do Sistema' : paroquia?.nome ?? ''}</div>
+            <div className="sidebar-logo-sub">{user?.role === 'admin' ? 'Admin do Sistema' : paroquia?.nome ?? ceb?.nome ?? ''}</div>
           </div>
         </div>
 
