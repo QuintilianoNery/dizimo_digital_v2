@@ -264,13 +264,13 @@ INSERT INTO public.administradores (nome, email, senha, status) VALUES
 INSERT INTO public.paroquias 
 (administrador_criou_id, codigo_paroquia, nome, email, telefone, endereco, fundacao, cnpj, paroco_nome, email_login_secretaria, senha, status)
 SELECT id, '001', 'Nossa Senhora das Graças', 'paroquia@nsgraças.com.br', '(27) 3522-1234',
-       'Rua das Flores, 100 - Centro, Cachoeiro de Itapemirim - ES', '1950-05-13', '12.345.678/0001-90',
+      'Rua das Flores, 100 - Centro, Cachoeiro de Itapemirim - ES', '1950-05-13'::date, '12.345.678/0001-90',
        'Pe. João da Silva', 'secretaria@nsgraças.com.br', 'paroquia123', 'ativa'::status_paroquia
 FROM public.administradores WHERE email = 'admin@dizimo.com';
 
 -- Configuração da Paróquia
 INSERT INTO public.configuracoes_paroquias (paroquia_id, percentual_dizimo_cebs, percentual_oferta_cebs, percentual_curia_diocesana, percentual_diocese, vigente_desde, ativa)
-SELECT id, 30.00, 20.00, 5.00, 10.00, '2024-01-01', true
+SELECT id, 30.00, 20.00, 5.00, 10.00, '2024-01-01'::date, true
 FROM public.paroquias WHERE codigo_paroquia = '001';
 
 -- CEBs
@@ -317,13 +317,13 @@ WHERE c.codigo_ceb = 'CEB-001' AND pm.nome = 'Tesoureiro';
 
 -- Dizimistas (exemplo para primeira CEB)
 INSERT INTO public.dizimistas (ceb_id, nome, telefone, email, endereco, data_nascimento, status)
-SELECT id, 'Pedro Costa', '(27) 99901-6001', 'pedro@example.com', 'Rua A, 123', '1980-01-15', 'ativo'::status_pessoa
+SELECT id, 'Pedro Costa', '(27) 99901-6001', 'pedro@example.com', 'Rua A, 123', '1980-01-15'::date, 'ativo'::status_pessoa
 FROM public.cebs WHERE codigo_ceb = 'CEB-001'
 UNION ALL
-SELECT id, 'Ana Silva', '(27) 99901-6002', 'ana@example.com', 'Rua B, 456', '1985-03-20', 'ativo'::status_pessoa
+SELECT id, 'Ana Silva', '(27) 99901-6002', 'ana@example.com', 'Rua B, 456', '1985-03-20'::date, 'ativo'::status_pessoa
 FROM public.cebs WHERE codigo_ceb = 'CEB-001'
 UNION ALL
-SELECT id, 'Carlos Santos', '(27) 99901-6003', 'carlos@example.com', 'Rua C, 789', '1978-07-10', 'ativo'::status_pessoa
+SELECT id, 'Carlos Santos', '(27) 99901-6003', 'carlos@example.com', 'Rua C, 789', '1978-07-10'::date, 'ativo'::status_pessoa
 FROM public.cebs WHERE codigo_ceb = 'CEB-001';
 
 -- Doacoes (exemplo)
