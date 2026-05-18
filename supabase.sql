@@ -258,14 +258,14 @@ CREATE TRIGGER trigger_update_alertas_percentuais BEFORE UPDATE ON public.alerta
 
 -- Admin
 INSERT INTO public.administradores (nome, email, senha, status) VALUES
-('Administrador', 'admin@dizimo.com', 'admin123', 'ativo');
+('Administrador', 'admin@dizimo.com', 'admin123', 'ativo'::status_admin);
 
 -- Paróquia
 INSERT INTO public.paroquias 
 (administrador_criou_id, codigo_paroquia, nome, email, telefone, endereco, fundacao, cnpj, paroco_nome, email_login_secretaria, senha, status)
 SELECT id, '001', 'Nossa Senhora das Graças', 'paroquia@nsgraças.com.br', '(27) 3522-1234',
        'Rua das Flores, 100 - Centro, Cachoeiro de Itapemirim - ES', '1950-05-13', '12.345.678/0001-90',
-       'Pe. João da Silva', 'secretaria@nsgraças.com.br', 'paroquia123', 'ativa'
+       'Pe. João da Silva', 'secretaria@nsgraças.com.br', 'paroquia123', 'ativa'::status_paroquia
 FROM public.administradores WHERE email = 'admin@dizimo.com';
 
 -- Configuração da Paróquia
@@ -275,55 +275,55 @@ FROM public.paroquias WHERE codigo_paroquia = '001';
 
 -- CEBs
 INSERT INTO public.cebs (paroquia_id, codigo_ceb, nome, email_login, senha, telefone, status)
-SELECT id, 'CEB-001', 'CEB São José', 'saojose@ceb.com', 'ceb123', '(27) 99901-1111', 'ativa'
+SELECT id, 'CEB-001', 'CEB São José', 'saojose@ceb.com', 'ceb123', '(27) 99901-1111', 'ativa'::status_ceb
 FROM public.paroquias WHERE codigo_paroquia = '001'
 UNION ALL
-SELECT id, 'CEB-002', 'CEB Santa Maria', 'santamaria@ceb.com', 'ceb123', '(27) 99902-2222', 'ativa'
+SELECT id, 'CEB-002', 'CEB Santa Maria', 'santamaria@ceb.com', 'ceb123', '(27) 99902-2222', 'ativa'::status_ceb
 FROM public.paroquias WHERE codigo_paroquia = '001'
 UNION ALL
-SELECT id, 'CEB-003', 'CEB São Francisco', 'saofrancisco@ceb.com', 'ceb123', '(27) 99903-3333', 'ativa'
+SELECT id, 'CEB-003', 'CEB São Francisco', 'saofrancisco@ceb.com', 'ceb123', '(27) 99903-3333', 'ativa'::status_ceb
 FROM public.paroquias WHERE codigo_paroquia = '001';
 
 -- Pastorais e Movimentos
 INSERT INTO public.pastorais_movimentos (nome, tipo, status) VALUES
-('Coordenador Comunitário', 'movimento', 'ativo'),
-('Tesoureiro', 'movimento', 'ativo'),
-('Secretário', 'movimento', 'ativo'),
-('Pastoral do Dízimo', 'pastoral', 'ativo'),
-('Pastoral da Liturgia', 'pastoral', 'ativo'),
-('Pastoral do Canto/Litúrgica Musical', 'pastoral', 'ativo'),
-('Pastoral dos Coroinhas', 'pastoral', 'ativo'),
-('Pastoral dos Acólitos', 'pastoral', 'ativo'),
-('Pastoral dos Leitores', 'pastoral', 'ativo'),
-('Pastoral da Acolhida', 'pastoral', 'ativo'),
-('Pastoral da Comunicação (PASCOM)', 'pastoral', 'ativo'),
-('Pastoral do Batismo', 'pastoral', 'ativo'),
-('Pastoral da Crisma', 'pastoral', 'ativo'),
-('Pastoral da Catequese', 'pastoral', 'ativo'),
-('Pastoral Familiar', 'pastoral', 'ativo'),
-('Pastoral Matrimonial', 'pastoral', 'ativo');
+('Coordenador Comunitário', 'movimento', 'ativo'::status_pessoa),
+('Tesoureiro', 'movimento', 'ativo'::status_pessoa),
+('Secretário', 'movimento', 'ativo'::status_pessoa),
+('Pastoral do Dízimo', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral da Liturgia', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral do Canto/Litúrgica Musical', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral dos Coroinhas', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral dos Acólitos', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral dos Leitores', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral da Acolhida', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral da Comunicação (PASCOM)', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral do Batismo', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral da Crisma', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral da Catequese', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral Familiar', 'pastoral', 'ativo'::status_pessoa),
+('Pastoral Matrimonial', 'pastoral', 'ativo'::status_pessoa);
 
 -- Conselheiros (exemplo para primeira CEB)
 INSERT INTO public.conselheiros_comunitarios (ceb_id, pastoral_movimento_id, nome, telefone, email, cargo, status)
-SELECT c.id, pm.id, 'João Silva', '(27) 99901-5001', 'joao@example.com', 'Coordenador', 'ativo'
+SELECT c.id, pm.id, 'João Silva', '(27) 99901-5001', 'joao@example.com', 'Coordenador', 'ativo'::status_pessoa
 FROM public.cebs c
 CROSS JOIN public.pastorais_movimentos pm
 WHERE c.codigo_ceb = 'CEB-001' AND pm.nome = 'Coordenador Comunitário'
 UNION ALL
-SELECT c.id, pm.id, 'Maria Santos', '(27) 99901-5002', 'maria@example.com', 'Tesoureira', 'ativo'
+SELECT c.id, pm.id, 'Maria Santos', '(27) 99901-5002', 'maria@example.com', 'Tesoureira', 'ativo'::status_pessoa
 FROM public.cebs c
 CROSS JOIN public.pastorais_movimentos pm
 WHERE c.codigo_ceb = 'CEB-001' AND pm.nome = 'Tesoureiro';
 
 -- Dizimistas (exemplo para primeira CEB)
 INSERT INTO public.dizimistas (ceb_id, nome, telefone, email, endereco, data_nascimento, status)
-SELECT id, 'Pedro Costa', '(27) 99901-6001', 'pedro@example.com', 'Rua A, 123', '1980-01-15', 'ativo'
+SELECT id, 'Pedro Costa', '(27) 99901-6001', 'pedro@example.com', 'Rua A, 123', '1980-01-15', 'ativo'::status_pessoa
 FROM public.cebs WHERE codigo_ceb = 'CEB-001'
 UNION ALL
-SELECT id, 'Ana Silva', '(27) 99901-6002', 'ana@example.com', 'Rua B, 456', '1985-03-20', 'ativo'
+SELECT id, 'Ana Silva', '(27) 99901-6002', 'ana@example.com', 'Rua B, 456', '1985-03-20', 'ativo'::status_pessoa
 FROM public.cebs WHERE codigo_ceb = 'CEB-001'
 UNION ALL
-SELECT id, 'Carlos Santos', '(27) 99901-6003', 'carlos@example.com', 'Rua C, 789', '1978-07-10', 'ativo'
+SELECT id, 'Carlos Santos', '(27) 99901-6003', 'carlos@example.com', 'Rua C, 789', '1978-07-10', 'ativo'::status_pessoa
 FROM public.cebs WHERE codigo_ceb = 'CEB-001';
 
 -- Doacoes (exemplo)
