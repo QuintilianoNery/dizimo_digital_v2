@@ -328,17 +328,17 @@ FROM public.cebs WHERE codigo_ceb = 'CEB-001';
 
 -- Doacoes (exemplo)
 INSERT INTO public.doacoes (ceb_id, dizimista_id, valor, competencia_mes, competencia_ano, tipo_doacao, forma_pagamento, observacoes)
-SELECT c.id, d.id, 100.00, 5, 2024, 'dizimo', 'pix', 'Maio 2024'
+SELECT c.id, d.id, 100.00, 5, 2024, 'dizimo'::tipo_doacao, 'pix'::forma_pagamento, 'Maio 2024'
 FROM public.cebs c
 CROSS JOIN public.dizimistas d
 WHERE c.codigo_ceb = 'CEB-001' AND d.nome = 'Pedro Costa'
 UNION ALL
-SELECT c.id, d.id, 150.00, 5, 2024, 'dizimo', 'dinheiro', 'Maio 2024'
+SELECT c.id, d.id, 150.00, 5, 2024, 'dizimo'::tipo_doacao, 'dinheiro'::forma_pagamento, 'Maio 2024'
 FROM public.cebs c
 CROSS JOIN public.dizimistas d
 WHERE c.codigo_ceb = 'CEB-001' AND d.nome = 'Ana Silva'
 UNION ALL
-SELECT c.id, d.id, 200.00, 5, 2024, 'oferta', 'transferencia', 'Maio 2024'
+SELECT c.id, d.id, 200.00, 5, 2024, 'oferta'::tipo_doacao, 'transferencia'::forma_pagamento, 'Maio 2024'
 FROM public.cebs c
 CROSS JOIN public.dizimistas d
 WHERE c.codigo_ceb = 'CEB-001' AND d.nome = 'Carlos Santos';
