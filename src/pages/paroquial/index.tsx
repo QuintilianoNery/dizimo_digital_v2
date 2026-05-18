@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { useToast, Alert, Modal, ConfirmDialog, PageHeader, SearchBar, StatusBadge, StatCard, SectionCard, EmptyState } from '../../components/ui/index';
 import { formatCurrency, calcularRepasse, filtrarDoacoes, agruparPorMes, getMesNome } from '../../utils/calculations';
+import { readFileAsDataUrl } from '../../utils/files';
 import type { CEB, PastoralMovimento, ConfiguracaoParoquia } from '../../types';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -155,6 +156,12 @@ export function CEBsPage() {
     showToast('Senha da CEB resetada!');
   };
 
+  const handleLogoUpload = async (file?: File | null) => {
+    if (!file) return;
+    const logoUrl = await readFileAsDataUrl(file);
+    setForm((prev) => ({ ...prev, logoUrl }));
+  };
+
   const f = (field: keyof CEB, val: string) => setForm((p) => ({ ...p, [field]: val }));
 
   return (
@@ -226,6 +233,17 @@ export function CEBsPage() {
               {errors.senha && <span className="form-error">{errors.senha}</span>}
             </div>
           )}
+        </div>
+        <div className="form-group">
+          <label className="form-label">Logomarca</label>
+          <input className="form-input" type="file" accept="image/*" onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)} />
+          <div style={{ marginTop: 10 }}>
+            {form.logoUrl ? (
+              <img src={form.logoUrl} alt="Prévia da logo" style={{ height: 72, width: 'auto', borderRadius: 12, objectFit: 'contain', border: '1px solid var(--border)' }} />
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Selecione uma imagem para a CEB.</div>
+            )}
+          </div>
         </div>
         <div className="form-row">
           <div className="form-group">
@@ -348,9 +366,10 @@ export function PastoraisPage() {
 // ── CONFIGURAÇÕES PAROQUIAL ────────────────────────────────────────────────
 export function ConfiguracoesParoquialPage() {
   const { user } = useAuth();
-  const { getConfiguracaoVigente, getConfiguracoes, saveConfiguracao } = useData();
+  const { getParoquia, getConfiguracaoVigente, getConfiguracoes, saveConfiguracao, updateParoquiaConta } = useData();
   const { showToast } = useToast();
   const paroquiaId = user!.paroquiaId!;
+  const paroquia = getParoquia(paroquiaId);
   const config = getConfiguracaoVigente(paroquiaId);
   const historico = getConfiguracoes(paroquiaId);
   const [form, setForm] = useState({
@@ -360,6 +379,12 @@ export function ConfiguracoesParoquialPage() {
     percentualDiocese: config?.percentualDiocese ?? 10,
     vigenteDesde: new Date().toISOString().split('T')[0],
   });
+  const [profileForm, setProfileForm] = useState({
+    logoUrl: paroquia?.logoUrl ?? '',
+    senhaAtual: '',
+    senhaNova: '',
+    confirmSenha: '',
+  });
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const handleSave = () => {
@@ -368,13 +393,66 @@ export function ConfiguracoesParoquialPage() {
     showToast('Percentuais atualizados! Alertas enviados para as CEBs.');
   };
 
+  const handleProfileSave = async () => {
+    if (!profileForm.senhaAtual.trim()) {
+      showToast('Informe a senha atual para salvar as alterações', 'error');
+      return;
+    }
+    if (profileForm.senhaNova && profileForm.senhaNova !== profileForm.confirmSenha) {
+      showToast('As novas senhas não conferem', 'error');
+      return;
+    }
+    const err = updateParoquiaConta(paroquiaId, profileForm.senhaAtual, {
+      logoUrl: profileForm.logoUrl || undefined,
+      senhaNova: profileForm.senhaNova || undefined,
+    });
+    if (err) { showToast(err, 'error'); return; }
+    setProfileForm((p) => ({ ...p, senhaAtual: '', senhaNova: '', confirmSenha: '' }));
+    showToast('Perfil da paróquia atualizado!');
+  };
+
+  const handleProfileLogoUpload = async (file?: File | null) => {
+    if (!file) return;
+    const logoUrl = await readFileAsDataUrl(file);
+    setProfileForm((p) => ({ ...p, logoUrl }));
+  };
+
   const f = (k: string, v: number) => setForm((p) => ({ ...p, [k]: v }));
 
   return (
     <div>
       <PageHeader title="Configurações" subtitle="Percentuais de repasse e configurações da paróquia" />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <SectionCard title="Perfil da paróquia" subtitle="Atualize a logomarca e a sua senha de acesso">
+        <div className="form-group">
+          <label className="form-label">Logomarca da paróquia</label>
+          <input className="form-input" type="file" accept="image/*" onChange={(e) => handleProfileLogoUpload(e.target.files?.[0] ?? null)} />
+          <div style={{ marginTop: 10 }}>
+            {profileForm.logoUrl ? (
+              <img src={profileForm.logoUrl} alt="Logo da paróquia" style={{ height: 72, width: 'auto', borderRadius: 12, objectFit: 'contain', border: '1px solid var(--border)' }} />
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Nenhuma logo cadastrada.</div>
+            )}
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Senha atual</label>
+            <input className="form-input" type="password" value={profileForm.senhaAtual} onChange={(e) => setProfileForm((p) => ({ ...p, senhaAtual: e.target.value }))} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Nova senha</label>
+            <input className="form-input" type="password" value={profileForm.senhaNova} onChange={(e) => setProfileForm((p) => ({ ...p, senhaNova: e.target.value }))} />
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Confirmar nova senha</label>
+          <input className="form-input" type="password" value={profileForm.confirmSenha} onChange={(e) => setProfileForm((p) => ({ ...p, confirmSenha: e.target.value }))} />
+        </div>
+        <button className="btn btn-primary" onClick={handleProfileSave}>Salvar perfil da paróquia</button>
+      </SectionCard>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
         <SectionCard title="Percentuais de repasse vigentes" subtitle="Alterar cria nova versão e notifica as CEBs">
           <div className="percentual-grid" style={{ marginBottom: 20 }}>
             {[
@@ -435,6 +513,80 @@ export function ConfiguracoesParoquialPage() {
       </div>
 
       <ConfirmDialog open={confirmOpen} title="Confirmar alteração" message="Ao salvar, uma nova configuração será criada e todas as CEBs serão notificadas sobre a mudança dos percentuais. Continuar?" confirmLabel="Salvar" onConfirm={handleSave} onCancel={() => setConfirmOpen(false)} />
+    </div>
+  );
+}
+
+export function ConfiguracoesCEBPage() {
+  const { user } = useAuth();
+  const { getParoquia, getCEB, updateCEBConta } = useData();
+  const { showToast } = useToast();
+  const paroquiaId = user!.paroquiaId!;
+  const cebId = user!.cebId!;
+  const paroquia = getParoquia(paroquiaId);
+  const ceb = getCEB(cebId);
+  const [form, setForm] = useState({
+    logoUrl: ceb?.logoUrl ?? '',
+    senhaAtual: '',
+    senhaNova: '',
+    confirmSenha: '',
+  });
+
+  const handleSave = () => {
+    if (!form.senhaAtual.trim()) {
+      showToast('Informe a senha atual para salvar as alterações', 'error');
+      return;
+    }
+    if (form.senhaNova && form.senhaNova !== form.confirmSenha) {
+      showToast('As novas senhas não conferem', 'error');
+      return;
+    }
+    const err = updateCEBConta(cebId, form.senhaAtual, {
+      logoUrl: form.logoUrl || undefined,
+      senhaNova: form.senhaNova || undefined,
+    });
+    if (err) { showToast(err, 'error'); return; }
+    setForm((p) => ({ ...p, senhaAtual: '', senhaNova: '', confirmSenha: '' }));
+    showToast('Configurações da CEB atualizadas!');
+  };
+
+  const handleLogoUpload = async (file?: File | null) => {
+    if (!file) return;
+    const logoUrl = await readFileAsDataUrl(file);
+    setForm((p) => ({ ...p, logoUrl }));
+  };
+
+  return (
+    <div>
+      <PageHeader title="Configurações da CEB" subtitle={`Atualize a logo e a senha da CEB ${ceb?.nome ?? ''}`} />
+      <SectionCard title="Perfil da CEB" subtitle={`Paróquia: ${paroquia?.nome ?? ''}`}>
+        <div className="form-group">
+          <label className="form-label">Logomarca da CEB</label>
+          <input className="form-input" type="file" accept="image/*" onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)} />
+          <div style={{ marginTop: 10 }}>
+            {form.logoUrl ? (
+              <img src={form.logoUrl} alt="Logo da CEB" style={{ height: 72, width: 'auto', borderRadius: 12, objectFit: 'contain', border: '1px solid var(--border)' }} />
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Nenhuma logo cadastrada.</div>
+            )}
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Senha atual</label>
+            <input className="form-input" type="password" value={form.senhaAtual} onChange={(e) => setForm((p) => ({ ...p, senhaAtual: e.target.value }))} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Nova senha</label>
+            <input className="form-input" type="password" value={form.senhaNova} onChange={(e) => setForm((p) => ({ ...p, senhaNova: e.target.value }))} />
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Confirmar nova senha</label>
+          <input className="form-input" type="password" value={form.confirmSenha} onChange={(e) => setForm((p) => ({ ...p, confirmSenha: e.target.value }))} />
+        </div>
+        <button className="btn btn-primary" onClick={handleSave}>Salvar configurações da CEB</button>
+      </SectionCard>
     </div>
   );
 }

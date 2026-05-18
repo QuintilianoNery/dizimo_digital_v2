@@ -5,8 +5,8 @@ import { DataProvider } from './contexts/DataContext';
 import { ToastProvider } from './components/ui/index';
 import { AppShell } from './components/layout/AppShell';
 import { AdminLoginPage, LoginPage } from './pages/auth/LoginPage';
-import { AdminDashboard, ParoquiasPage } from './pages/admin/index';
-import { DashboardParoquial, CEBsPage, PastoraisPage, ConfiguracoesParoquialPage, RelatoriosParoquialPage } from './pages/paroquial/pages';
+import { AdminDashboard, ParoquiasPage, ConfiguracoesAdminPage } from './pages/admin/index';
+import { DashboardParoquial, CEBsPage, PastoraisPage, ConfiguracoesParoquialPage, ConfiguracoesCEBPage, RelatoriosParoquialPage } from './pages/paroquial/pages';
 import { AniversariantesPage } from './pages/paroquial/aniversariantes';
 import { DashboardCEB, DoacoesPage, DizimistasPage, AniversariantesCEBPage, ConselheirosPage } from './pages/cebs/index';
 import { seedInitialData } from './utils/seed';
@@ -41,6 +41,7 @@ function AppRoutes() {
       {/* Admin */}
       <Route path="/admin/dashboard" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/paroquias" element={<ProtectedRoute role="admin"><ParoquiasPage /></ProtectedRoute>} />
+      <Route path="/admin/configuracoes" element={<ProtectedRoute role="admin"><ConfiguracoesAdminPage /></ProtectedRoute>} />
 
       {/* Paroquial */}
       <Route path="/paroquial/dashboard" element={<ProtectedRoute role="paroquial"><DashboardParoquial /></ProtectedRoute>} />
@@ -56,6 +57,7 @@ function AppRoutes() {
       <Route path="/cebs/dizimistas" element={<ProtectedRoute role="ceb"><DizimistasPage /></ProtectedRoute>} />
       <Route path="/cebs/aniversariantes" element={<ProtectedRoute role="ceb"><AniversariantesCEBPage /></ProtectedRoute>} />
       <Route path="/cebs/conselheiros" element={<ProtectedRoute role="ceb"><ConselheirosPage /></ProtectedRoute>} />
+      <Route path="/cebs/configuracoes" element={<ProtectedRoute role="ceb"><ConfiguracoesCEBPage /></ProtectedRoute>} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/login" />} />

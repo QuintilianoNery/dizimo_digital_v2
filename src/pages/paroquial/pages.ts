@@ -1,1 +1,1 @@
-export { DashboardParoquial, CEBsPage, PastoraisPage, ConfiguracoesParoquialPage, RelatoriosParoquialPage } from './index';
+export { DashboardParoquial, CEBsPage, PastoraisPage, ConfiguracoesParoquialPage, ConfiguracoesCEBPage, RelatoriosParoquialPage } from './index';

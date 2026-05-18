@@ -26,6 +26,7 @@ CREATE TABLE public.administradores (
   nome VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   senha VARCHAR(255) NOT NULL,
+  logo_url TEXT,
   status status_admin NOT NULL DEFAULT 'ativo',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -91,6 +92,7 @@ CREATE TABLE public.cebs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   paroquia_id UUID NOT NULL REFERENCES public.paroquias(id) ON DELETE CASCADE,
   codigo_ceb VARCHAR(50) NOT NULL,
+  logo_url TEXT,
   nome VARCHAR(255) NOT NULL,
   email_login VARCHAR(255),
   senha VARCHAR(255) NOT NULL,

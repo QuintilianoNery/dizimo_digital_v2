@@ -4,13 +4,16 @@ import { Heart, Eye, EyeOff, Building2, Home, Shield, ChevronDown } from 'lucide
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { Alert } from '../../components/ui/index';
+import { LogoMark } from '../../components/ui/LogoMark';
 import { storageGetOne, storageSet } from '../../utils/storage';
 import type { Paroquia, CEB } from '../../types';
 
 // ── ADMIN LOGIN ────────────────────────────────────────────────────────────
 export function AdminLoginPage() {
   const { loginAdmin, isFirstAccess, setupAdminPassword, isAuthenticated, user } = useAuth();
+  const { getAdministrador } = useData();
   const navigate = useNavigate();
+  const admin = getAdministrador();
   const [email, setEmail] = useState('admin@dizimo.com');
   const [senha, setSenha] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -42,7 +45,14 @@ export function AdminLoginPage() {
   return (
     <div className="auth-shell">
       <div className="auth-brand">
-        <div className="auth-brand-logo"><Heart size={32} color="white" fill="white" /></div>
+        <LogoMark
+          src={admin?.logoUrl}
+          alt="Logo administrativa"
+          size={72}
+          radius={20}
+          fallback={<Heart size={32} color="white" fill="white" />}
+          background={admin?.logoUrl ? 'transparent' : 'var(--accent)'}
+        />
         <h1>Dízimo Digital</h1>
         <p>Sistema de gestão de dízimos, doações e ofertas das comunidades eclesiais.</p>
         <div style={{ marginTop: 40, padding: '16px', background: 'rgba(255,255,255,.08)', borderRadius: 10, width: '100%' }}>
@@ -146,6 +156,8 @@ export function LoginPage() {
     c.nome.toLowerCase().includes(cSearch.toLowerCase()) || c.codigoCeb.includes(cSearch),
   );
 
+  const selectedLoginLogo = tab === 'paroquial' ? pSelected?.logoUrl : cSelected?.logoUrl;
+
   useEffect(() => {
     if (isAuthenticated) {
       if (user?.role === 'paroquial') navigate('/paroquial/dashboard');
@@ -230,7 +242,14 @@ export function LoginPage() {
   return (
     <div className="auth-shell">
       <div className="auth-brand">
-        <div className="auth-brand-logo"><Heart size={32} color="white" fill="white" /></div>
+        <LogoMark
+          src={pSelected?.logoUrl ?? cPSelected?.logoUrl}
+          alt="Marca institucional"
+          size={72}
+          radius={20}
+          fallback={<Heart size={32} color="white" fill="white" />}
+          background={pSelected?.logoUrl || cPSelected?.logoUrl ? 'transparent' : 'var(--accent)'}
+        />
         <h1>Dízimo Digital</h1>
         <p>Gestão de dízimos, doações e ofertas das comunidades eclesiais de base.</p>
         <div style={{ marginTop: 32, width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -254,6 +273,19 @@ export function LoginPage() {
           <h2>Bem-vindo</h2>
           <p className="auth-subtitle">Selecione sua área de acesso e faça login</p>
 
+          {selectedLoginLogo && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+              <LogoMark
+                src={selectedLoginLogo}
+                alt="Logo selecionada"
+                size={72}
+                radius={18}
+                fallback={<Heart size={28} color="white" fill="white" />}
+                background="transparent"
+              />
+            </div>
+          )}
+
           <div className="tab-switcher">
             <button className={tab === 'paroquial' ? 'active' : ''} onClick={() => { setTab('paroquial'); setError(''); }}>
               <Building2 size={13} style={{ marginRight: 5, verticalAlign: -2 }} />Paroquial
@@ -267,11 +299,6 @@ export function LoginPage() {
 
           {tab === 'paroquial' ? (
             <>
-              {pSelected?.logoUrl && (
-                <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                  <img src={pSelected.logoUrl} alt="Logo" style={{ height: 56, borderRadius: 8, objectFit: 'contain' }} />
-                </div>
-              )}
               <DropdownSearch
                 label="Paróquia"
                 value={pSearch}

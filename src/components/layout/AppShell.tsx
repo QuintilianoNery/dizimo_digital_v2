@@ -6,6 +6,7 @@ import {
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
+import { LogoMark } from '../ui/LogoMark';
 
 interface NavItem {
   to: string;
@@ -35,10 +36,11 @@ function NavGroup({ title, items, onNavigate }: { title: string; items: NavItem[
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
-  const { getParoquia, getCEB, getAlertas } = useData();
+  const { getAdministrador, getParoquia, getCEB, getAlertas } = useData();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const admin = getAdministrador();
   const paroquia = user?.paroquiaId ? getParoquia(user.paroquiaId) : null;
   const ceb = user?.cebId ? getCEB(user.cebId) : null;
   const alertas = user?.cebId ? getAlertas(user.cebId) : [];
@@ -53,6 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const adminItems: NavItem[] = [
     { to: '/admin/dashboard', icon: <LayoutDashboard size={17} />, label: 'Dashboard' },
     { to: '/admin/paroquias', icon: <Building2 size={17} />, label: 'Paróquias' },
+    { to: '/admin/configuracoes', icon: <Settings size={17} />, label: 'Configurações' },
   ];
 
   const paroquialItems: NavItem[] = [
@@ -70,12 +73,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { to: '/cebs/dizimistas', icon: <Users size={17} />, label: 'Dizimistas' },
     { to: '/cebs/aniversariantes', icon: <Cake size={17} />, label: 'Aniversariantes' },
     { to: '/cebs/conselheiros', icon: <UserCheck size={17} />, label: 'Conselheiros' },
+    { to: '/cebs/configuracoes', icon: <Settings size={17} />, label: 'Configurações' },
   ];
 
   const navItems = user?.role === 'admin' ? adminItems : user?.role === 'paroquial' ? paroquialItems : cebItems;
   const sectionTitle = user?.role === 'admin' ? 'Administração' : user?.role === 'paroquial' ? 'Área Paroquial' : 'Área CEB';
 
   const userLabel = user?.role === 'admin' ? 'Administrador' : user?.role === 'paroquial' ? paroquia?.nome ?? 'Paróquia' : ceb?.nome ?? 'CEB';
+  const adminLogo = admin?.logoUrl;
+  const paroquiaLogo = paroquia?.logoUrl;
+  const cebLogo = ceb?.logoUrl;
+  const shellLogo = user?.role === 'admin' ? adminLogo : paroquiaLogo;
+  const avatarLogo = user?.role === 'admin' ? adminLogo : user?.role === 'paroquial' ? paroquiaLogo : cebLogo;
   const initials = userLabel.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
@@ -83,9 +92,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className={`sidebar-backdrop${sidebarOpen ? ' open' : ''}`} onClick={closeSidebar} />
       <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">
-            <Heart size={18} color="white" fill="white" />
-          </div>
+          <LogoMark
+            src={shellLogo}
+            alt={sectionTitle}
+            size={36}
+            radius={8}
+            fallback={<Heart size={18} color="white" fill="white" />}
+            background={user?.role === 'admin' ? 'rgba(255,255,255,.15)' : 'var(--accent)'}
+          />
           <div>
             {paroquia?.logoUrl ? (
               <img src={paroquia.logoUrl} alt="Logo" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover', marginBottom: 2 }} />
@@ -137,7 +151,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
               </div>
             )}
-            <div className="user-avatar">{initials}</div>
+            <LogoMark
+              src={avatarLogo}
+              alt={userLabel}
+              size={30}
+              radius={999}
+              fallback={<span>{initials}</span>}
+              border="1px solid rgba(0,0,0,.06)"
+              background="var(--primary-light)"
+            />
             <span>{userLabel}</span>
           </div>
         </div>
