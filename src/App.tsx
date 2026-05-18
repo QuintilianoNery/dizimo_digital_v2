@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Analytics } from "@vercel/analytics/next"
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
