@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Analytics } from "@vercel/analytics/react"
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { ToastProvider } from './components/ui/index';
@@ -79,7 +80,7 @@ export default function App() {
           <AuthProvider>
             <ToastProvider>
               <AppRoutes />
-              <Analytics />
+              <SpeedInsights />
             </ToastProvider>
           </AuthProvider>
         </SeedWrapper>
