@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Building2, Plus, Pencil, Trash2, KeyRound, TrendingUp, Users, Heart, FileText } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../components/ui/index';
-import { Modal, ConfirmDialog, PageHeader, SearchBar, StatusBadge, StatCard, SectionCard, EmptyState } from '../../components/ui/index';
+import { Alert, Modal, ConfirmDialog, PageHeader, SearchBar, StatusBadge, StatCard, SectionCard, EmptyState } from '../../components/ui/index';
 import { formatCurrency } from '../../utils/calculations';
 import type { Paroquia } from '../../types';
 
@@ -242,7 +242,7 @@ export function ParoquiasPage() {
           </>
         }
       >
-        <div className="alert alert-warning"><span>Esta ação irá redefinir a senha de acesso paroquial.</span></div>
+        <Alert variant="warning" title="Atenção" message="Esta ação irá redefinir a senha de acesso paroquial." icon={<KeyRound size={16} />} />
         <div className="form-group">
           <label className="form-label">Nova senha</label>
           <input className="form-input" type="password" value={newSenha} onChange={(e) => setNewSenha(e.target.value)} />

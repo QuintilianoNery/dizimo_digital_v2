@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   LayoutDashboard, Home, Plus, Pencil, Trash2, KeyRound, Settings,
   TrendingUp, DollarSign, Heart, Users, ArrowUpRight, FileText,
@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
-import { useToast, Modal, ConfirmDialog, PageHeader, SearchBar, StatusBadge, StatCard, SectionCard, EmptyState } from '../../components/ui/index';
+import { useToast, Alert, Modal, ConfirmDialog, PageHeader, SearchBar, StatusBadge, StatCard, SectionCard, EmptyState } from '../../components/ui/index';
 import { formatCurrency, calcularRepasse, filtrarDoacoes, agruparPorMes, getMesNome } from '../../utils/calculations';
 import type { CEB, PastoralMovimento, ConfiguracaoParoquia } from '../../types';
 
@@ -41,10 +41,12 @@ export function DashboardParoquial() {
       />
 
       {config && (
-        <div className="alert alert-info" style={{ marginBottom: 16 }}>
-          <Settings size={16} />
-          <span>Configuração vigente: Dízimo {config.percentualDizimoCebs}% · Oferta {config.percentualOfertaCebs}% · Cúria {config.percentualCuriaDiocesana}% · Diocese {config.percentualDiocese}%</span>
-        </div>
+        <Alert
+          variant="info"
+          title="Configuração vigente"
+          message={`Dízimo ${config.percentualDizimoCebs}% · Oferta ${config.percentualOfertaCebs}% · Cúria ${config.percentualCuriaDiocesana}% · Diocese ${config.percentualDiocese}%`}
+          icon={<Settings size={16} />}
+        />
       )}
 
       {/* Filters */}
@@ -243,7 +245,7 @@ export function CEBsPage() {
       <Modal open={resetOpen} onClose={() => setResetOpen(false)} title={`Reset de senha — ${selected?.nome}`}
         footer={<><button className="btn btn-ghost" onClick={() => setResetOpen(false)}>Cancelar</button><button className="btn btn-primary" onClick={handleReset}>Confirmar</button></>}
       >
-        <div className="alert alert-warning"><span>Esta ação irá redefinir a senha da CEB.</span></div>
+        <Alert variant="warning" title="Atenção" message="Esta ação irá redefinir a senha da CEB." icon={<KeyRound size={16} />} />
         <div className="form-group">
           <label className="form-label">Nova senha</label>
           <input className="form-input" type="password" value={newSenha} onChange={(e) => setNewSenha(e.target.value)} />
@@ -404,10 +406,12 @@ export function ConfiguracoesParoquialPage() {
             <label className="form-label">Vigente a partir de</label>
             <input type="date" className="form-input" value={form.vigenteDesde} onChange={(e) => setForm((p) => ({ ...p, vigenteDesde: e.target.value }))} />
           </div>
-          <div className="alert alert-warning">
-            <RefreshCw size={14} />
-            <span>Salvar irá criar uma nova versão. Os meses anteriores não serão recalculados.</span>
-          </div>
+          <Alert
+            variant="warning"
+            title="Atenção"
+            message="Salvar irá criar uma nova versão. Os meses anteriores não serão recalculados."
+            icon={<RefreshCw size={14} />}
+          />
           <button className="btn btn-primary" onClick={() => setConfirmOpen(true)}>Salvar e notificar CEBs</button>
         </SectionCard>
 

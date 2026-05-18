@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, Users, BookOpen, Heart, Settings,
-  LogOut, ChevronRight, Bell, FileText, Home, UserCheck,
+  LogOut, ChevronRight, Bell, FileText, Home, UserCheck, Cake,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
@@ -54,6 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const paroquialItems: NavItem[] = [
     { to: '/paroquial/dashboard', icon: <LayoutDashboard size={17} />, label: 'Dashboard' },
     { to: '/paroquial/cebs', icon: <Home size={17} />, label: 'CEBs' },
+    { to: '/paroquial/aniversariantes', icon: <Cake size={17} />, label: 'Aniversariantes' },
     { to: '/paroquial/pastorais', icon: <BookOpen size={17} />, label: 'Pastorais e Movimentos' },
     { to: '/paroquial/configuracoes', icon: <Settings size={17} />, label: 'Configurações' },
     { to: '/paroquial/relatorios', icon: <FileText size={17} />, label: 'Relatórios' },
@@ -63,6 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { to: '/cebs/dashboard', icon: <LayoutDashboard size={17} />, label: 'Dashboard', badge: alertas.length || undefined },
     { to: '/cebs/doacoes', icon: <Heart size={17} />, label: 'Doações' },
     { to: '/cebs/dizimistas', icon: <Users size={17} />, label: 'Dizimistas' },
+    { to: '/cebs/aniversariantes', icon: <Cake size={17} />, label: 'Aniversariantes' },
     { to: '/cebs/conselheiros', icon: <UserCheck size={17} />, label: 'Conselheiros' },
   ];
 

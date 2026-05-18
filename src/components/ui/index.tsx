@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, AlertTriangle, Info, XCircle } from 'lucide-react';
 
 // ── MODAL ──────────────────────────────────────────────────────────────────
 interface ModalProps {
@@ -61,29 +61,81 @@ export function ConfirmDialog({ open, title, message, confirmLabel = 'Confirmar'
   );
 }
 
+// ── ALERT ──────────────────────────────────────────────────────────────────
+export type AlertVariant = 'success' | 'danger' | 'warning' | 'info' | 'gray';
+interface AlertProps {
+  variant?: AlertVariant;
+  title?: string;
+  message: React.ReactNode;
+  icon?: React.ReactNode;
+  action?: React.ReactNode;
+  onClose?: () => void;
+  compact?: boolean;
+}
+
+export function Alert({
+  variant = 'info',
+  title,
+  message,
+  icon,
+  action,
+  onClose,
+  compact,
+}: AlertProps) {
+  return (
+    <div className={`tg-alert tg-alert-${variant}${compact ? ' tg-alert-compact' : ''}`}>
+      {icon && <span className="tg-alert-icon">{icon}</span>}
+      <div className="tg-alert-content">
+        {title && <div className="tg-alert-title">{title}</div>}
+        <div className="tg-alert-message">{message}</div>
+      </div>
+      {action && <div className="tg-alert-action">{action}</div>}
+      {onClose && (
+        <button type="button" className="tg-alert-close" onClick={onClose} aria-label="Fechar alerta">
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── TOAST ──────────────────────────────────────────────────────────────────
 type ToastType = 'success' | 'error' | 'info';
-interface Toast { id: string; message: string; type: ToastType; }
-interface ToastCtx { showToast: (msg: string, type?: ToastType) => void; }
+interface Toast { id: string; message: string; type: ToastType; title?: string; icon?: React.ReactNode; }
+interface ToastCtx { showToast: (msg: string, type?: ToastType, opts?: { title?: string; durationMs?: number; icon?: React.ReactNode }) => void; }
 const ToastContext = createContext<ToastCtx>({ showToast: () => {} });
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const showToast = useCallback((message: string, type: ToastType = 'success') => {
+  const showToast = useCallback((message: string, type: ToastType = 'success', opts?: { title?: string; durationMs?: number; icon?: React.ReactNode }) => {
     const id = Math.random().toString(36).slice(2);
-    setToasts((t) => [...t, { id, message, type }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
+    setToasts((t) => [...t, { id, message, type, title: opts?.title, icon: opts?.icon }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), opts?.durationMs ?? 3500);
   }, []);
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
       <div className="toast-container">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.type}`}>
-            {t.type === 'success' ? <CheckCircle size={16} /> : t.type === 'error' ? <AlertCircle size={16} /> : <Info size={16} />}
-            {t.message}
-          </div>
-        ))}
+        {toasts.map((t) => {
+          const variant: AlertVariant = t.type === 'error' ? 'danger' : t.type;
+          const title = t.type === 'success' ? 'Sucesso' : t.type === 'error' ? 'Erro' : 'Informação';
+          const icon = t.icon ?? (t.type === 'success'
+            ? <CheckCircle size={16} />
+            : t.type === 'error'
+              ? <XCircle size={16} />
+              : <Info size={16} />);
+
+          return (
+            <Alert
+              key={t.id}
+              variant={variant}
+              title={t.title ?? title}
+              message={t.message}
+              icon={icon}
+              compact
+            />
+          );
+        })}
       </div>
     </ToastContext.Provider>
   );

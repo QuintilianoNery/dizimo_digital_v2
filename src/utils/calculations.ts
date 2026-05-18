@@ -1,5 +1,12 @@
 import type { Doacao, ConfiguracaoParoquia, DashboardStats, FiltrosPeriodo } from '../types';
 
+export interface FiltrosAniversariantes {
+  tipo: 'mes' | 'periodo';
+  mes?: number;
+  inicio?: string;
+  fim?: string;
+}
+
 export function calcularRepasse(
   doacoes: Doacao[],
   config: ConfiguracaoParoquia | null,
@@ -88,6 +95,44 @@ export function formatCurrency(value: number): string {
 export function formatDate(date: string): string {
   if (!date) return '';
   return new Date(date + 'T00:00:00').toLocaleDateString('pt-BR');
+}
+
+export function calcularIdade(dataNascimento: string, referencia = new Date()): number {
+  if (!dataNascimento) return 0;
+  const nascimento = new Date(dataNascimento + 'T00:00:00');
+  let idade = referencia.getFullYear() - nascimento.getFullYear();
+  const passouAniversario = referencia.getMonth() > nascimento.getMonth()
+    || (referencia.getMonth() === nascimento.getMonth() && referencia.getDate() >= nascimento.getDate());
+  if (!passouAniversario) idade -= 1;
+  return idade;
+}
+
+export function filtrarAniversariantes<T extends { dataNascimento: string }>(
+  dizimistas: T[],
+  filtros: FiltrosAniversariantes,
+): T[] {
+  return dizimistas.filter((d) => {
+    if (!d.dataNascimento) return false;
+
+    const nascimento = new Date(d.dataNascimento + 'T00:00:00');
+    if (Number.isNaN(nascimento.getTime())) return false;
+
+    if (filtros.tipo === 'mes') {
+      return filtros.mes ? nascimento.getMonth() + 1 === filtros.mes : true;
+    }
+
+    if (filtros.inicio) {
+      const inicio = new Date(filtros.inicio + 'T00:00:00');
+      if (nascimento < inicio) return false;
+    }
+
+    if (filtros.fim) {
+      const fim = new Date(filtros.fim + 'T23:59:59');
+      if (nascimento > fim) return false;
+    }
+
+    return true;
+  }).sort((a, b) => a.dataNascimento.localeCompare(b.dataNascimento));
 }
 
 export function getMesNome(mes: number): string {

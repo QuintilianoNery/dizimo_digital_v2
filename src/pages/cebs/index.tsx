@@ -1,33 +1,55 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus, Pencil, Trash2, DollarSign, Heart, ArrowUpRight,
-  TrendingUp, Users, UserCheck, Bell, X, AlertTriangle
+  TrendingUp, Users, UserCheck, X, AlertTriangle, Cake, CalendarDays
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import {
-  useToast, Modal, ConfirmDialog, PageHeader, SearchBar,
+  useToast, Alert, Modal, ConfirmDialog, PageHeader, SearchBar,
   StatusBadge, StatCard, SectionCard, EmptyState,
 } from '../../components/ui/index';
-import { formatCurrency, calcularRepasse, filtrarDoacoes, getMesNome } from '../../utils/calculations';
+import { formatCurrency, calcularRepasse, filtrarDoacoes, getMesNome, filtrarAniversariantes, formatDate } from '../../utils/calculations';
 import type { Dizimista, ConselheiroComunitario, Doacao } from '../../types';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
 // ── CEB DASHBOARD ──────────────────────────────────────────────────────────
 export function DashboardCEB() {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const { getDoacoes, getConfiguracaoVigente, getAlertas, marcarAlertaLido, getCEB, getParoquia } = useData();
+  const { getDoacoes, getConfiguracaoVigente, getAlertas, marcarAlertaLido, getCEB, getParoquia, getDizimistas } = useData();
+  const { showToast } = useToast();
   const cebId = user!.cebId!;
   const paroquiaId = user!.paroquiaId!;
   const ceb = getCEB(cebId);
   const paroquia = getParoquia(paroquiaId);
   const config = getConfiguracaoVigente(paroquiaId);
   const alertas = getAlertas(cebId);
+  const birthdayToastShown = useRef(false);
 
   const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
   const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1);
   const [filtroTipo, setFiltroTipo] = useState<'mensal' | 'trimestral' | 'semestral' | 'anual'>('mensal');
+
+  const aniversariantesMes = useMemo(() => {
+    const dizimistas = getDizimistas(cebId).filter((d) => d.status === 'ativo');
+    return filtrarAniversariantes(dizimistas, { tipo: 'mes', mes: new Date().getMonth() + 1 });
+  }, [cebId, getDizimistas]);
+
+  const nomesAniversariantes = useMemo(() => {
+    const nomes = aniversariantesMes.slice(0, 3).map((d) => d.nome.split(' ')[0]);
+    const extras = aniversariantesMes.length > 3 ? ` e mais ${aniversariantesMes.length - 3}` : '';
+    return `${nomes.join(', ')}${extras}`;
+  }, [aniversariantesMes]);
+
+  useEffect(() => {
+    if (birthdayToastShown.current || aniversariantesMes.length === 0) return;
+
+    showToast(nomesAniversariantes, 'success', { title: 'Aniversariantes do mês:', durationMs: 4000, icon: <Cake size={16} /> });
+    birthdayToastShown.current = true;
+  }, [aniversariantesMes.length, nomesAniversariantes, showToast]);
 
   const doacoes = useMemo(() => {
     const all = getDoacoes(cebId);
@@ -49,27 +71,35 @@ export function DashboardCEB() {
 
   return (
     <div>
+      {aniversariantesMes.length > 0 && (
+        <Alert
+          variant="success"
+          message={`Há ${aniversariantesMes.length} aniversariante(s) neste mês na sua CEB.`}
+          icon={<Cake size={16} />}
+          action={<button className="btn btn-ghost btn-sm" onClick={() => navigate('/cebs/aniversariantes')}>Ver aniversariantes</button>}
+        />
+      )}
+
       {/* Alertas */}
       {alertas.map((alerta) => (
-        <div key={alerta.id} className="alert alert-warning" style={{ position: 'relative' }}>
-          <AlertTriangle size={16} />
-          <div style={{ flex: 1 }}>
-            <strong>Alteração de percentual</strong>
-            <p style={{ marginTop: 2, fontSize: 13 }}>{alerta.mensagem}</p>
-            <p style={{ fontSize: 12, marginTop: 4, color: 'var(--text-3)' }}>{new Date(alerta.createdAt).toLocaleDateString('pt-BR')}</p>
-          </div>
-          <button onClick={() => marcarAlertaLido(alerta.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--warning)' }}>
-            <X size={16} />
-          </button>
-        </div>
+        <Alert
+          key={alerta.id}
+          variant="warning"
+          title="Alteração de percentual"
+          message={`${alerta.mensagem} (${new Date(alerta.createdAt).toLocaleDateString('pt-BR')})`}
+          icon={<AlertTriangle size={16} />}
+          onClose={() => marcarAlertaLido(alerta.id)}
+        />
       ))}
 
       <PageHeader title={ceb?.nome ?? 'Dashboard'} subtitle={`Paróquia: ${paroquia?.nome ?? ''}`} />
 
       {config && (
-        <div className="alert alert-info" style={{ marginBottom: 12 }}>
-          <span>Percentuais vigentes: Dízimo <strong>{config.percentualDizimoCebs}%</strong> · Oferta <strong>{config.percentualOfertaCebs}%</strong></span>
-        </div>
+        <Alert
+          variant="info"
+          title="Percentuais vigentes"
+          message={`Dízimo ${config.percentualDizimoCebs}% · Oferta ${config.percentualOfertaCebs}%`}
+        />
       )}
 
       <div className="filter-bar">
@@ -283,6 +313,7 @@ export function DoacoesPage() {
 
 // ── DIZIMISTAS PAGE ────────────────────────────────────────────────────────
 export function DizimistasPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { getDizimistas, saveDizimista, deleteDizimista } = useData();
   const { showToast } = useToast();
@@ -321,7 +352,12 @@ export function DizimistasPage() {
   return (
     <div>
       <PageHeader title="Dizimistas" subtitle="Cadastro de dizimistas da comunidade"
-        action={<button className="btn btn-primary" onClick={openNew}><Plus size={16} />Novo dizimista</button>}
+        action={(
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-ghost" onClick={() => navigate('/cebs/aniversariantes')}><Cake size={16} />Ver aniversariantes</button>
+            <button className="btn btn-primary" onClick={openNew}><Plus size={16} />Novo dizimista</button>
+          </div>
+        )}
       />
       <SectionCard>
         <div style={{ marginBottom: 16 }}><SearchBar value={search} onChange={setSearch} placeholder="Buscar por nome ou telefone..." /></div>
@@ -393,6 +429,99 @@ export function DizimistasPage() {
         onConfirm={() => { deleteDizimista(selected!.id); setDeleteOpen(false); showToast('Excluído!'); }}
         onCancel={() => setDeleteOpen(false)}
       />
+    </div>
+  );
+}
+
+// ── ANIVERSARIANTES CEB PAGE ──────────────────────────────────────────────
+export function AniversariantesCEBPage() {
+  const { user } = useAuth();
+  const { getDizimistas, getCEB } = useData();
+  const cebId = user!.cebId!;
+  const ceb = getCEB(cebId);
+  const hoje = new Date();
+
+  const [modoFiltro, setModoFiltro] = useState<'mes' | 'periodo'>('mes');
+  const [mesFiltro, setMesFiltro] = useState(hoje.getMonth() + 1);
+  const [inicioFiltro, setInicioFiltro] = useState(`${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`);
+  const [fimFiltro, setFimFiltro] = useState(hoje.toISOString().split('T')[0]);
+  const [search, setSearch] = useState('');
+
+  const base = useMemo(
+    () => getDizimistas(cebId).filter((d) => d.status === 'ativo'),
+    [cebId, getDizimistas],
+  );
+
+  const aniversariantes = useMemo(() => {
+    const filtrados = filtrarAniversariantes(base, modoFiltro === 'mes'
+      ? { tipo: 'mes', mes: mesFiltro }
+      : { tipo: 'periodo', inicio: inicioFiltro, fim: fimFiltro });
+
+    const termo = search.toLowerCase();
+    return filtrados.filter((d) => d.nome.toLowerCase().includes(termo) || d.telefone.toLowerCase().includes(termo));
+  }, [base, fimFiltro, inicioFiltro, mesFiltro, modoFiltro, search]);
+
+  const periodoLabel = modoFiltro === 'mes'
+    ? `Mês selecionado: ${getMesNome(mesFiltro)}`
+    : `Período: ${formatDate(inicioFiltro)} até ${formatDate(fimFiltro)}`;
+
+  return (
+    <div>
+      <PageHeader
+        title="Aniversariantes"
+        subtitle={`Dizimistas da ${ceb?.nome ?? 'CEB'} com filtro por mês ou período de nascimento`}
+      />
+
+      <div className="grid-stats" style={{ marginBottom: 16 }}>
+        <StatCard label="Aniversariantes" value={String(aniversariantes.length)} sub={periodoLabel} icon={<Cake size={20} />} color="var(--primary)" />
+        <StatCard label="Filtro" value={modoFiltro === 'mes' ? 'Mês' : 'Período'} sub="Visualização personalizada" icon={<CalendarDays size={20} />} color="var(--info)" />
+      </div>
+
+      <SectionCard title="Filtros" subtitle="Escolha mês ou período para atualizar a lista">
+        <div className="filter-bar" style={{ marginBottom: 0 }}>
+          <select className="form-select" value={modoFiltro} onChange={(e) => setModoFiltro(e.target.value as 'mes' | 'periodo')}>
+            <option value="mes">Mês específico</option>
+            <option value="periodo">Período personalizado</option>
+          </select>
+
+          {modoFiltro === 'mes' ? (
+            <select className="form-select" value={mesFiltro} onChange={(e) => setMesFiltro(Number(e.target.value))}>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((mes) => (
+                <option key={mes} value={mes}>{getMesNome(mes)}</option>
+              ))}
+            </select>
+          ) : (
+            <>
+              <input className="form-input" type="date" value={inicioFiltro} onChange={(e) => setInicioFiltro(e.target.value)} />
+              <input className="form-input" type="date" value={fimFiltro} onChange={(e) => setFimFiltro(e.target.value)} />
+            </>
+          )}
+
+          <SearchBar value={search} onChange={setSearch} placeholder="Buscar por nome ou telefone" />
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Lista de aniversariantes" subtitle="A lista abaixo muda conforme o filtro selecionado">
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Nome</th><th>Telefone</th><th>Nascimento</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {aniversariantes.length === 0 ? (
+                <tr><td colSpan={4}><EmptyState title="Nenhum aniversariante no filtro" description="Altere o mês ou o período para consultar outros aniversariantes." icon={<Cake size={36} />} /></td></tr>
+              ) : aniversariantes.map((d) => (
+                <tr key={d.id}>
+                  <td style={{ fontWeight: 500 }}>{d.nome}</td>
+                  <td>{d.telefone}</td>
+                  <td>{formatDate(d.dataNascimento)}</td>
+                  <td><StatusBadge status={d.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
     </div>
   );
 }

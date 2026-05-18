@@ -442,6 +442,37 @@ tbody tr:hover { background: var(--surface2); }
 .alert-danger  { background: var(--danger-bg);  border: 1px solid #fecaca; color: #7f1d1d; }
 .alert-info    { background: var(--info-bg);    border: 1px solid #bfdbfe; color: #1e3a8a; }
 
+.tg-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  margin-bottom: 16px;
+}
+.tg-alert-compact { margin-bottom: 0; }
+.tg-alert-icon { display: inline-flex; align-items: center; justify-content: center; margin-top: 1px; }
+.tg-alert-content { flex: 1; min-width: 0; }
+.tg-alert-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+.tg-alert-message { font-size: 13px; line-height: 1.5; }
+.tg-alert-action { display: inline-flex; align-items: center; margin-left: 8px; }
+.tg-alert-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  opacity: .75;
+  margin-left: 6px;
+}
+.tg-alert-close:hover { opacity: 1; }
+
+.tg-alert-success { background: var(--success-bg); border-color: #bbf7d0; color: #14532d; }
+.tg-alert-danger  { background: var(--danger-bg); border-color: #fecaca; color: #7f1d1d; }
+.tg-alert-warning { background: var(--warning-bg); border-color: #fde68a; color: #92400e; }
+.tg-alert-info    { background: var(--info-bg); border-color: #bfdbfe; color: #1e3a8a; }
+.tg-alert-gray    { background: var(--surface2); border-color: var(--border); color: var(--text-2); }
+
 /* Tabs inside pages */
 .page-tabs {
   display: flex;
@@ -505,22 +536,12 @@ tbody tr:hover { background: var(--surface2); }
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: min(360px, calc(100vw - 32px));
 }
-.toast {
-  background: var(--text);
-  color: white;
-  padding: 12px 18px;
-  border-radius: var(--radius);
-  font-size: 13.5px;
+.toast-container .tg-alert {
   box-shadow: var(--shadow-md);
   animation: slideIn .2s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 320px;
 }
-.toast-success { background: var(--success); }
-.toast-error { background: var(--danger); }
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
 /* Donut/chart placeholder */

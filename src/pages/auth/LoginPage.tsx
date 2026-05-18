@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Heart, Eye, EyeOff, Building2, Home, Shield, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
+import { Alert } from '../../components/ui/index';
 import { storageGetOne, storageSet } from '../../utils/storage';
 import type { Paroquia, CEB } from '../../types';
 
@@ -64,13 +65,15 @@ export function AdminLoginPage() {
           </div>
 
           {isFirst && (
-            <div className="alert alert-info" style={{ marginBottom: 16 }}>
-              <Shield size={16} />
-              <span>Este é o primeiro acesso ao sistema. Crie as credenciais do administrador para continuar.</span>
-            </div>
+            <Alert
+              variant="info"
+              title="Primeiro acesso"
+              message="Este é o primeiro acesso ao sistema. Crie as credenciais do administrador para continuar."
+              icon={<Shield size={16} />}
+            />
           )}
 
-          {error && <div className="alert alert-danger"><span>{error}</span></div>}
+          {error && <Alert variant="danger" title="Erro" message={error} />}
 
           <div className="form-group">
             <label className="form-label">Email do administrador</label>
@@ -260,7 +263,7 @@ export function LoginPage() {
             </button>
           </div>
 
-          {error && <div className="alert alert-danger"><span>{error}</span></div>}
+          {error && <Alert variant="danger" title="Erro" message={error} />}
 
           {tab === 'paroquial' ? (
             <>
