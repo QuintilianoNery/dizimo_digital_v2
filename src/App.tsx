@@ -75,17 +75,17 @@ function SeedWrapper({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <>
-      <BrowserRouter>
-        <DataProvider>
-          <SeedWrapper>
-            <AuthProvider>
-              <ToastProvider>
-                <AppRoutes />
-              </ToastProvider>
-            </AuthProvider>
-          </SeedWrapper>
-        </DataProvider>
-      </BrowserRouter>
+    <BrowserRouter>
+      <DataProvider>
+        <SeedWrapper>
+          <AuthProvider>
+            <ToastProvider>
+              <AppRoutes />
+            </ToastProvider>
+          </AuthProvider>
+        </SeedWrapper>
+      </DataProvider>
+    </BrowserRouter>
       <SpeedInsights />
     </>
   );
