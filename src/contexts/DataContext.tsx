@@ -51,7 +51,10 @@ interface DataContextType {
   getAlertas: (cebId: string) => AlertaPercentual[];
   marcarAlertaLido: (id: string) => void;
   getAdministrador: () => Administrador | null;
+  updateAdministrador: (emailAtual: string, senhaAtual: string, updates: { nome?: string; email?: string; logoUrl?: string; senhaNova?: string }) => string | null;
   updateAdminSenha: (email: string, senhaAtual: string, senhaNova: string) => string | null;
+  updateParoquiaConta: (paroquiaId: string, senhaAtual: string, updates: { logoUrl?: string; senhaNova?: string }) => string | null;
+  updateCEBConta: (cebId: string, senhaAtual: string, updates: { logoUrl?: string; senhaNova?: string }) => string | null;
   resetSenhaParoquia: (paroquiaId: string, senhaNova: string) => void;
   resetSenhaCEB: (cebId: string, senhaNova: string) => void;
 }
@@ -178,6 +181,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         id: data.id ?? uuid(),
         paroquiaId: data.paroquiaId,
         codigoCeb: data.codigoCeb ?? `CEB-${String(Date.now()).slice(-4)}`,
+        logoUrl: data.logoUrl,
         nome: data.nome,
         emailLogin: data.emailLogin ?? '',
         senha: data.senha ?? existing?.senha ?? '',
@@ -328,17 +332,80 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const updateAdminSenha = useCallback(
-    (email: string, senhaAtual: string, senhaNova: string): string | null => {
+  const updateAdministrador = useCallback(
+    (emailAtual: string, senhaAtual: string, updates: { nome?: string; email?: string; logoUrl?: string; senhaNova?: string }): string | null => {
       const admins = storageGet<Administrador>(KEYS.ADMIN);
       const admin = admins[0];
-      if (!admin || admin.email !== email || admin.senha !== senhaAtual) {
-        return 'Email ou senha atual incorretos';
+      if (!admin) return 'Administrador não encontrado';
+      const emailChanged = updates.email !== undefined && updates.email !== admin.email;
+      const passwordChangeRequested = !!updates.senhaNova;
+      // If changing email or password, require current credentials
+      if (emailChanged || passwordChangeRequested) {
+        if (admin.email !== emailAtual || admin.senha !== senhaAtual) {
+          return 'Email ou senha atual incorretos';
+        }
       }
-      admin.senha = senhaNova;
-      admin.email = email;
-      admin.updatedAt = new Date().toISOString();
+
+      admins[0] = {
+        ...admin,
+        nome: updates.nome ?? admin.nome,
+        email: updates.email ?? admin.email,
+        logoUrl: updates.logoUrl ?? admin.logoUrl,
+        senha: updates.senhaNova ?? admin.senha,
+        updatedAt: new Date().toISOString(),
+      };
       storageSet(KEYS.ADMIN, admins);
+      return null;
+    },
+    [],
+  );
+
+  const updateAdminSenha = useCallback(
+    (email: string, senhaAtual: string, senhaNova: string): string | null => {
+      return updateAdministrador(email, senhaAtual, { senhaNova });
+    },
+    [updateAdministrador],
+  );
+
+  const updateParoquiaConta = useCallback(
+    (paroquiaId: string, senhaAtual: string, updates: { logoUrl?: string; senhaNova?: string }): string | null => {
+      const paroquias = storageGet<Paroquia>(KEYS.PAROQUIAS);
+      const idx = paroquias.findIndex((p) => p.id === paroquiaId);
+      if (idx < 0) return 'Paróquia não encontrada';
+      const current = paroquias[idx];
+      const passwordChangeRequested = !!updates.senhaNova;
+      if (passwordChangeRequested) {
+        if (current.senha !== senhaAtual) return 'Senha atual incorreta';
+      }
+      paroquias[idx] = {
+        ...current,
+        ...(updates.logoUrl !== undefined ? { logoUrl: updates.logoUrl } : {}),
+        ...(updates.senhaNova ? { senha: updates.senhaNova } : {}),
+        updatedAt: new Date().toISOString(),
+      };
+      storageSet(KEYS.PAROQUIAS, paroquias);
+      return null;
+    },
+    [],
+  );
+
+  const updateCEBConta = useCallback(
+    (cebId: string, senhaAtual: string, updates: { logoUrl?: string; senhaNova?: string }): string | null => {
+      const cebs = storageGet<CEB>(KEYS.CEBS);
+      const idx = cebs.findIndex((c) => c.id === cebId);
+      if (idx < 0) return 'CEB não encontrada';
+      const current = cebs[idx];
+      const passwordChangeRequested = !!updates.senhaNova;
+      if (passwordChangeRequested) {
+        if (current.senha !== senhaAtual) return 'Senha atual incorreta';
+      }
+      cebs[idx] = {
+        ...current,
+        ...(updates.logoUrl !== undefined ? { logoUrl: updates.logoUrl } : {}),
+        ...(updates.senhaNova ? { senha: updates.senhaNova } : {}),
+        updatedAt: new Date().toISOString(),
+      };
+      storageSet(KEYS.CEBS, cebs);
       return null;
     },
     [],
@@ -371,7 +438,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         getDizimistas, saveDizimista, deleteDizimista,
         getDoacoes, getDoacoesParoquia, saveDoacao, deleteDoacao,
         getAlertas, marcarAlertaLido,
-        getAdministrador, updateAdminSenha, resetSenhaParoquia, resetSenhaCEB,
+          getAdministrador, updateAdministrador, updateAdminSenha, updateParoquiaConta, updateCEBConta, resetSenhaParoquia, resetSenhaCEB,
       }}
     >
       {children}

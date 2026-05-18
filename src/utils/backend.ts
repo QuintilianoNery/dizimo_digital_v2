@@ -31,7 +31,16 @@ export async function getAdministradores(): Promise<Administrador[]> {
       console.warn('Erro ao buscar admins do Supabase:', error);
       return storageGet<Administrador>(KEYS.ADMIN);
     }
-    return data || [];
+    return (data || []).map((a: any) => ({
+      id: a.id,
+      nome: a.nome,
+      email: a.email,
+      senha: a.senha,
+      logoUrl: a.logo_url,
+      status: a.status,
+      createdAt: a.created_at,
+      updatedAt: a.updated_at,
+    })) as Administrador[];
   }
   return storageGet<Administrador>(KEYS.ADMIN);
 }
@@ -48,7 +57,16 @@ export async function getAdministrador(id: string): Promise<Administrador | null
       console.warn('Erro ao buscar admin:', error);
       return null;
     }
-    return data as Administrador;
+    return {
+      id: data.id,
+      nome: data.nome,
+      email: data.email,
+      senha: data.senha,
+      logoUrl: data.logo_url,
+      status: data.status,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    } as Administrador;
   }
   const admins = storageGet<Administrador>(KEYS.ADMIN);
   return admins.find((a) => a.id === id) || null;
@@ -64,6 +82,7 @@ export async function createAdministrador(admin: Omit<Administrador, 'createdAt'
         nome: admin.nome,
         email: admin.email,
         senha: admin.senha,
+        logo_url: (admin as any).logoUrl,
         status: admin.status,
         created_at: now,
         updated_at: now,
@@ -75,7 +94,16 @@ export async function createAdministrador(admin: Omit<Administrador, 'createdAt'
       console.warn('Erro ao criar admin:', error);
       return null;
     }
-    return data as Administrador;
+    return {
+      id: data.id,
+      nome: data.nome,
+      email: data.email,
+      senha: data.senha,
+      logoUrl: data.logo_url,
+      status: data.status,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    } as Administrador;
   }
   const newAdmin = { ...admin, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
   const admins = storageGet<Administrador>(KEYS.ADMIN);
@@ -239,6 +267,7 @@ export async function getCEBs(): Promise<CEB[]> {
       id: c.id,
       paroquiaId: c.paroquia_id,
       codigoCeb: c.codigo_ceb,
+      logoUrl: c.logo_url,
       nome: c.nome,
       emailLogin: c.email_login,
       senha: c.senha,
@@ -269,6 +298,7 @@ export async function getCEB(id: string): Promise<CEB | null> {
       id: data.id,
       paroquiaId: data.paroquia_id,
       codigoCeb: data.codigo_ceb,
+      logoUrl: data.logo_url,
       nome: data.nome,
       emailLogin: data.email_login,
       senha: data.senha,
@@ -287,6 +317,7 @@ export async function updateCEB(id: string, updates: Partial<CEB>): Promise<CEB 
   if (USE_SUPABASE) {
     const updateData: any = {};
     if (updates.codigoCeb) updateData.codigo_ceb = updates.codigoCeb;
+    if (updates.logoUrl) updateData.logo_url = updates.logoUrl;
     if (updates.nome) updateData.nome = updates.nome;
     if (updates.emailLogin) updateData.email_login = updates.emailLogin;
     if (updates.senha) updateData.senha = updates.senha;
@@ -310,6 +341,7 @@ export async function updateCEB(id: string, updates: Partial<CEB>): Promise<CEB 
       id: data.id,
       paroquiaId: data.paroquia_id,
       codigoCeb: data.codigo_ceb,
+      logoUrl: data.logo_url,
       nome: data.nome,
       emailLogin: data.email_login,
       senha: data.senha,

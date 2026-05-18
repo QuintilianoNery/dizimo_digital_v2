@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Building2, Plus, Pencil, Trash2, KeyRound, TrendingUp, Users, Heart, FileText } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../components/ui/index';
-import { Modal, ConfirmDialog, PageHeader, SearchBar, StatusBadge, StatCard, SectionCard, EmptyState } from '../../components/ui/index';
+import { Alert, Modal, ConfirmDialog, PageHeader, SearchBar, StatusBadge, StatCard, SectionCard, EmptyState } from '../../components/ui/index';
 import { formatCurrency } from '../../utils/calculations';
 import type { Paroquia } from '../../types';
+import { readFileAsDataUrl } from '../../utils/files';
+import { LogoMark } from '../../components/ui/LogoMark';
 
 // ── ADMIN DASHBOARD ────────────────────────────────────────────────────────
 export function AdminDashboard() {
@@ -78,6 +80,12 @@ export function ParoquiasPage() {
   const openEdit = (p: Paroquia) => { setForm({ ...p }); setErrors({}); setSelected(p); setModalOpen(true); };
   const openReset = (p: Paroquia) => { setSelected(p); setNewSenha(''); setConfirmSenha(''); setResetOpen(true); };
   const openDelete = (p: Paroquia) => { setSelected(p); setDeleteOpen(true); };
+
+  const handleLogoUpload = async (file?: File | null) => {
+    if (!file) return;
+    const logoUrl = await readFileAsDataUrl(file);
+    setForm((prev) => ({ ...prev, logoUrl }));
+  };
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -231,6 +239,17 @@ export function ParoquiasPage() {
             </div>
           )}
         </div>
+        <div className="form-group">
+          <label className="form-label">Logomarca da paróquia</label>
+          <input className="form-input" type="file" accept="image/*" onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)} />
+          <div style={{ marginTop: 10 }}>
+            {form.logoUrl ? (
+              <img src={form.logoUrl} alt="Logo da paróquia" style={{ height: 72, width: 'auto', borderRadius: 12, objectFit: 'contain', border: '1px solid var(--border)' }} />
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Selecione uma imagem para a paróquia.</div>
+            )}
+          </div>
+        </div>
       </Modal>
 
       {/* Reset senha */}
@@ -242,7 +261,7 @@ export function ParoquiasPage() {
           </>
         }
       >
-        <div className="alert alert-warning"><span>Esta ação irá redefinir a senha de acesso paroquial.</span></div>
+        <Alert variant="warning" title="Atenção" message="Esta ação irá redefinir a senha de acesso paroquial." icon={<KeyRound size={16} />} />
         <div className="form-group">
           <label className="form-label">Nova senha</label>
           <input className="form-input" type="password" value={newSenha} onChange={(e) => setNewSenha(e.target.value)} />
@@ -262,6 +281,85 @@ export function ParoquiasPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteOpen(false)}
       />
+    </div>
+  );
+}
+
+// ── CONFIGURAÇÕES ADMIN ───────────────────────────────────────────────────
+export function ConfiguracoesAdminPage() {
+  const { getAdministrador, updateAdministrador } = useData();
+  const { showToast } = useToast();
+  const admin = getAdministrador();
+  const [form, setForm] = useState({
+    email: admin?.email ?? 'admin@dizimo.com',
+    logoUrl: admin?.logoUrl ?? '',
+    senhaAtual: '',
+    senhaNova: '',
+    confirmarSenha: '',
+  });
+
+  const handleLogoUpload = async (file?: File | null) => {
+    if (!file) return;
+    const logoUrl = await readFileAsDataUrl(file);
+    setForm((prev) => ({ ...prev, logoUrl }));
+  };
+
+  const handleSave = () => {
+    const emailChanged = form.email !== admin?.email;
+    const passwordChangeRequested = !!form.senhaNova;
+    if (passwordChangeRequested && form.senhaNova !== form.confirmarSenha) {
+      showToast('As novas senhas não conferem', 'error');
+      return;
+    }
+    if ((emailChanged || passwordChangeRequested) && !form.senhaAtual.trim()) {
+      showToast('Informe a senha atual para salvar as alterações', 'error');
+      return;
+    }
+    const err = updateAdministrador(admin?.email ?? form.email, form.senhaAtual, {
+      email: form.email,
+      logoUrl: form.logoUrl || undefined,
+      senhaNova: form.senhaNova || undefined,
+    });
+    if (err) { showToast(err, 'error'); return; }
+    setForm((p) => ({ ...p, senhaAtual: '', senhaNova: '', confirmarSenha: '' }));
+    showToast('Configurações administrativas atualizadas!');
+  };
+
+  return (
+    <div>
+      <PageHeader title="Configurações administrativas" subtitle="Altere a logo do sistema e a senha do administrador" />
+      <SectionCard title="Identidade do sistema" subtitle="Essa logo aparece no login e na área administrativa">
+        <div className="form-group">
+          <label className="form-label">Logomarca do sistema</label>
+          <input className="form-input" type="file" accept="image/*" onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)} />
+          <div style={{ marginTop: 10 }}>
+            {form.logoUrl ? (
+              <LogoMark src={form.logoUrl} alt="Logo do sistema" size={72} radius={20} fallback={<Building2 size={28} color="white" />} background="transparent" />
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Nenhuma logo cadastrada.</div>
+            )}
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Email do administrador</label>
+          <input className="form-input" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Senha atual</label>
+            <input className="form-input" type="password" value={form.senhaAtual} onChange={(e) => setForm((p) => ({ ...p, senhaAtual: e.target.value }))} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Nova senha</label>
+            <input className="form-input" type="password" value={form.senhaNova} onChange={(e) => setForm((p) => ({ ...p, senhaNova: e.target.value }))} />
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Confirmar nova senha</label>
+          <input className="form-input" type="password" value={form.confirmarSenha} onChange={(e) => setForm((p) => ({ ...p, confirmarSenha: e.target.value }))} />
+        </div>
+        <button className="btn btn-primary" onClick={handleSave}>Salvar configurações administrativas</button>
+      </SectionCard>
     </div>
   );
 }

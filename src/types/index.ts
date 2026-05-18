@@ -6,6 +6,7 @@ export interface Administrador {
   nome: string;
   email: string;
   senha: string;
+  logoUrl?: string;
   status: 'ativo' | 'inativo';
   createdAt: string;
   updatedAt: string;
@@ -48,6 +49,7 @@ export interface CEB {
   id: string;
   paroquiaId: string;
   codigoCeb: string;
+  logoUrl?: string;
   nome: string;
   emailLogin: string;
   senha: string;

@@ -18,6 +18,7 @@ export interface SupabaseAdministrador {
   nome: string;
   email: string;
   senha: string;
+  logo_url?: string;
   status: 'ativo' | 'inativo';
   created_at: string;
   updated_at: string;
@@ -60,6 +61,7 @@ export interface SupabaseCEB {
   id: string;
   paroquia_id: string;
   codigo_ceb: string;
+  logo_url?: string;
   nome: string;
   email_login?: string;
   senha: string;
@@ -188,6 +190,7 @@ export async function mapSupabaseCEBToApp(sc: SupabaseCEB) {
     id: sc.id,
     paroquiaId: sc.paroquia_id,
     codigoCeb: sc.codigo_ceb,
+    logoUrl: sc.logo_url,
     nome: sc.nome,
     emailLogin: sc.email_login,
     senha: sc.senha,
@@ -201,6 +204,7 @@ export async function mapSupabaseCEBToApp(sc: SupabaseCEB) {
 export async function mapAppCEBToSupabase(c: any): Promise<Partial<SupabaseCEB>> {
   return {
     codigo_ceb: c.codigoCeb,
+    logo_url: c.logoUrl,
     nome: c.nome,
     email_login: c.emailLogin,
     senha: c.senha,

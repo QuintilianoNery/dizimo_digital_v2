@@ -3,13 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { Heart, Eye, EyeOff, Building2, Home, Shield, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
+import { Alert } from '../../components/ui/index';
+import { LogoMark } from '../../components/ui/LogoMark';
 import { storageGetOne, storageSet } from '../../utils/storage';
 import type { Paroquia, CEB } from '../../types';
 
 // ── ADMIN LOGIN ────────────────────────────────────────────────────────────
 export function AdminLoginPage() {
   const { loginAdmin, isFirstAccess, setupAdminPassword, isAuthenticated, user } = useAuth();
+  const { getAdministrador } = useData();
   const navigate = useNavigate();
+  const admin = getAdministrador();
   const [email, setEmail] = useState('admin@dizimo.com');
   const [senha, setSenha] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -41,7 +45,14 @@ export function AdminLoginPage() {
   return (
     <div className="auth-shell">
       <div className="auth-brand">
-        <div className="auth-brand-logo"><Heart size={32} color="white" fill="white" /></div>
+        <LogoMark
+          src={admin?.logoUrl}
+          alt="Logo administrativa"
+          size={72}
+          radius={20}
+          fallback={<Heart size={32} color="white" fill="white" />}
+          background={admin?.logoUrl ? 'transparent' : 'var(--accent)'}
+        />
         <h1>Dízimo Digital</h1>
         <p>Sistema de gestão de dízimos, doações e ofertas das comunidades eclesiais.</p>
         <div style={{ marginTop: 40, padding: '16px', background: 'rgba(255,255,255,.08)', borderRadius: 10, width: '100%' }}>
@@ -51,6 +62,16 @@ export function AdminLoginPage() {
       </div>
       <div className="auth-form-area">
         <div className="auth-form-card">
+          <div className="auth-card-mobile-logo">
+            <LogoMark
+              src={admin?.logoUrl}
+              alt="Logo administrativa"
+              size={120}
+              radius={22}
+              fallback={<Heart size={40} color="white" fill="white" />}
+              background={admin?.logoUrl ? 'transparent' : 'var(--accent)'}
+            />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <div style={{ width: 36, height: 36, background: 'var(--primary-light)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Shield size={18} color="var(--primary)" />
@@ -64,13 +85,15 @@ export function AdminLoginPage() {
           </div>
 
           {isFirst && (
-            <div className="alert alert-info" style={{ marginBottom: 16 }}>
-              <Shield size={16} />
-              <span>Este é o primeiro acesso ao sistema. Crie as credenciais do administrador para continuar.</span>
-            </div>
+            <Alert
+              variant="info"
+              title="Primeiro acesso"
+              message="Este é o primeiro acesso ao sistema. Crie as credenciais do administrador para continuar."
+              icon={<Shield size={16} />}
+            />
           )}
 
-          {error && <div className="alert alert-danger"><span>{error}</span></div>}
+          {error && <Alert variant="danger" title="Erro" message={error} />}
 
           <div className="form-group">
             <label className="form-label">Email do administrador</label>
@@ -106,7 +129,7 @@ export function AdminLoginPage() {
 // ── PAROQUIAL / CEB LOGIN ──────────────────────────────────────────────────
 export function LoginPage() {
   const { loginParoquial, loginCEB, isAuthenticated, user } = useAuth();
-  const { getParoquias, getCEBs } = useData();
+  const { getParoquias, getCEBs, getAdministrador } = useData();
   const navigate = useNavigate();
   const [tab, setTab] = useState<'paroquial' | 'ceb'>('paroquial');
 
@@ -142,6 +165,11 @@ export function LoginPage() {
   const filteredCebs = cebsForParoquia.filter((c) =>
     c.nome.toLowerCase().includes(cSearch.toLowerCase()) || c.codigoCeb.includes(cSearch),
   );
+
+  const admin = getAdministrador();
+  const selectedLoginLogo = tab === 'paroquial'
+    ? (pSelected?.logoUrl ?? admin?.logoUrl)
+    : (cSelected?.logoUrl ?? cPSelected?.logoUrl ?? admin?.logoUrl);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -189,10 +217,10 @@ export function LoginPage() {
     navigate('/cebs/dashboard');
   };
 
-  function DropdownSearch({ value, onChange, onSelect, options, label, open, onToggle, placeholder }: {
+  function DropdownSearch({ value, onChange, onSelect, options, label, open, setOpen, placeholder }: {
     value: string; onChange: (v: string) => void; onSelect: (item: any) => void;
     options: { id: string; label: string; sub: string }[]; label: string;
-    open: boolean; onToggle: () => void; placeholder: string;
+    open: boolean; setOpen: (open: boolean) => void; placeholder: string;
   }) {
     return (
       <div className="form-group" style={{ position: 'relative' }}>
@@ -201,8 +229,9 @@ export function LoginPage() {
           <input
             className="form-input"
             value={value}
-            onChange={(e) => { onChange(e.target.value); onToggle(); }}
-            onFocus={onToggle}
+            onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            onClick={() => setOpen(true)}
             placeholder={placeholder}
             style={{ paddingRight: 32 }}
           />
@@ -211,7 +240,7 @@ export function LoginPage() {
         {open && options.length > 0 && (
           <div style={{ position: 'absolute', zIndex: 100, top: '100%', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-md)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
             {options.map((opt) => (
-              <button key={opt.id} onClick={() => { onSelect(opt); onChange(opt.label); onToggle(); }}
+              <button type="button" key={opt.id} onClick={() => { onSelect(opt); onChange(opt.label); setOpen(false); }}
                 style={{ width: '100%', padding: '10px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={{ fontSize: 13, fontWeight: 500 }}>{opt.label}</span>
                 <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{opt.sub}</span>
@@ -226,7 +255,14 @@ export function LoginPage() {
   return (
     <div className="auth-shell">
       <div className="auth-brand">
-        <div className="auth-brand-logo"><Heart size={32} color="white" fill="white" /></div>
+        <LogoMark
+          src={pSelected?.logoUrl ?? cPSelected?.logoUrl ?? admin?.logoUrl}
+          alt="Marca institucional"
+          size={72}
+          radius={20}
+          fallback={<Building2 size={32} color="white" />}
+          background={pSelected?.logoUrl || cPSelected?.logoUrl || admin?.logoUrl ? 'transparent' : 'var(--accent)'}
+        />
         <h1>Dízimo Digital</h1>
         <p>Gestão de dízimos, doações e ofertas das comunidades eclesiais de base.</p>
         <div style={{ marginTop: 32, width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -247,6 +283,18 @@ export function LoginPage() {
 
       <div className="auth-form-area">
         <div className="auth-form-card">
+          {selectedLoginLogo && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+              <LogoMark
+                src={selectedLoginLogo}
+                alt="Logo selecionada"
+                size={120}
+                radius={22}
+                fallback={<Heart size={40} color="white" fill="white" />}
+                background="transparent"
+              />
+            </div>
+          )}
           <h2>Bem-vindo</h2>
           <p className="auth-subtitle">Selecione sua área de acesso e faça login</p>
 
@@ -259,23 +307,22 @@ export function LoginPage() {
             </button>
           </div>
 
-          {error && <div className="alert alert-danger"><span>{error}</span></div>}
+          {error && <Alert variant="danger" title="Erro" message={error} />}
 
           {tab === 'paroquial' ? (
             <>
-              {pSelected?.logoUrl && (
-                <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                  <img src={pSelected.logoUrl} alt="Logo" style={{ height: 56, borderRadius: 8, objectFit: 'contain' }} />
-                </div>
-              )}
               <DropdownSearch
                 label="Paróquia"
                 value={pSearch}
                 onChange={setPSearch}
-                onSelect={(opt) => setPSelected(paroquias.find((p) => p.id === opt.id) ?? null)}
+                onSelect={(opt) => {
+                  const sel = paroquias.find((p) => p.id === opt.id) ?? null;
+                  setPSelected(sel);
+                  if (sel && pRemember) storageSet('remember_login', { type: 'paroquial', paroquiaId: sel.id });
+                }}
                 options={filteredPar.map((p) => ({ id: p.id, label: p.nome, sub: `Código: ${p.codigoParoquia}` }))}
                 open={pDropOpen}
-                onToggle={() => setPDropOpen(!pDropOpen)}
+                setOpen={setPDropOpen}
                 placeholder="Digite o nome ou código"
               />
               <div className="form-group">
@@ -288,7 +335,7 @@ export function LoginPage() {
                 </div>
               </div>
               <label className="form-check" style={{ marginBottom: 20 }}>
-                <input type="checkbox" checked={pRemember} onChange={(e) => setPRemember(e.target.checked)} />
+                <input type="checkbox" checked={pRemember} onChange={(e) => { setPRemember(e.target.checked); if (e.target.checked && pSelected) storageSet('remember_login', { type: 'paroquial', paroquiaId: pSelected.id }); }} />
                 <span>Lembrar paróquia selecionada</span>
               </label>
               <button className="btn btn-primary btn-full btn-lg" onClick={handleParoquialLogin}>Entrar</button>
@@ -299,20 +346,30 @@ export function LoginPage() {
                 label="Paróquia"
                 value={cPSearch}
                 onChange={setCPSearch}
-                onSelect={(opt) => { setCPSelected(paroquias.find((p) => p.id === opt.id) ?? null); setCSelected(null); setCSearch(''); }}
+                onSelect={(opt) => {
+                  const sel = paroquias.find((p) => p.id === opt.id) ?? null;
+                  setCPSelected(sel);
+                  setCSelected(null);
+                  setCSearch('');
+                  if (sel && cRemember) storageSet('remember_login', { type: 'ceb', paroquiaId: sel.id });
+                }}
                 options={filteredCPar.map((p) => ({ id: p.id, label: p.nome, sub: `Código: ${p.codigoParoquia}` }))}
                 open={cPDropOpen}
-                onToggle={() => setCPDropOpen(!cPDropOpen)}
+                setOpen={setCPDropOpen}
                 placeholder="Digite o nome ou código"
               />
               <DropdownSearch
                 label="Comunidade (CEB)"
                 value={cSearch}
                 onChange={setCSearch}
-                onSelect={(opt) => setCSelected(cebsForParoquia.find((c) => c.id === opt.id) ?? null)}
+                onSelect={(opt) => {
+                  const sel = cebsForParoquia.find((c) => c.id === opt.id) ?? null;
+                  setCSelected(sel);
+                  if (sel && cRemember && cPSelected) storageSet('remember_login', { type: 'ceb', paroquiaId: cPSelected.id, cebId: sel.id });
+                }}
                 options={filteredCebs.map((c) => ({ id: c.id, label: c.nome, sub: `Código: ${c.codigoCeb}` }))}
                 open={cDropOpen}
-                onToggle={() => { if (cPSelected) setCDropOpen(!cDropOpen); }}
+                setOpen={(open) => { if (cPSelected) setCDropOpen(open); }}
                 placeholder={cPSelected ? 'Selecione a CEB' : 'Primeiro selecione a paróquia'}
               />
               <div className="form-group">
@@ -325,7 +382,7 @@ export function LoginPage() {
                 </div>
               </div>
               <label className="form-check" style={{ marginBottom: 20 }}>
-                <input type="checkbox" checked={cRemember} onChange={(e) => setCRemember(e.target.checked)} />
+                <input type="checkbox" checked={cRemember} onChange={(e) => { setCRemember(e.target.checked); if (e.target.checked && cSelected && cPSelected) storageSet('remember_login', { type: 'ceb', paroquiaId: cPSelected.id, cebId: cSelected.id }); }} />
                 <span>Lembrar paróquia e CEB selecionadas</span>
               </label>
               <button className="btn btn-primary btn-full btn-lg" onClick={handleCEBLogin}>Entrar</button>
