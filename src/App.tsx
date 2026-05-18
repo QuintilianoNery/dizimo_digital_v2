@@ -1,6 +1,4 @@
 import { useEffect } from 'react';
-import { Analytics } from "@vercel/analytics/next"
-import { SpeedInsights } from "@vercel/speed-insights/next"
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
@@ -74,7 +72,6 @@ function SeedWrapper({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <>
     <BrowserRouter>
       <DataProvider>
         <SeedWrapper>
@@ -86,7 +83,5 @@ export default function App() {
         </SeedWrapper>
       </DataProvider>
     </BrowserRouter>
-      <SpeedInsights />
-    </>
   );
 }
