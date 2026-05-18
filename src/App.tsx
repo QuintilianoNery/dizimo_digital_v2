@@ -87,7 +87,6 @@ export default function App() {
         </DataProvider>
       </BrowserRouter>
       <SpeedInsights />
-      <Analytics />
     </>
   );
 }
