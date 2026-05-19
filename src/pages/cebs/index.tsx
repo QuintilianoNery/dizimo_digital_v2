@@ -27,16 +27,18 @@ export function DashboardCEB() {
   const paroquia = getParoquia(paroquiaId);
   const config = getConfiguracaoVigente(paroquiaId);
   const alertas = getAlertas(cebId);
+  const allDoacoes = getDoacoes(cebId);
+  const dizimistasAtivos = getDizimistas(cebId).filter((d) => d.status === 'ativo');
   const birthdayToastShown = useRef(false);
 
   const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
   const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1);
   const [filtroTipo, setFiltroTipo] = useState<'mensal' | 'trimestral' | 'semestral' | 'anual'>('mensal');
 
-  const aniversariantesMes = useMemo(() => {
-    const dizimistas = getDizimistas(cebId).filter((d) => d.status === 'ativo');
-    return filtrarAniversariantes(dizimistas, { tipo: 'mes', mes: new Date().getMonth() + 1 });
-  }, [cebId, getDizimistas]);
+  const aniversariantesMes = useMemo(
+    () => filtrarAniversariantes(dizimistasAtivos, { tipo: 'mes', mes: new Date().getMonth() + 1 }),
+    [dizimistasAtivos],
+  );
 
   const nomesAniversariantes = useMemo(() => {
     const nomes = aniversariantesMes.slice(0, 3).map((d) => d.nome.split(' ')[0]);
@@ -51,21 +53,20 @@ export function DashboardCEB() {
     birthdayToastShown.current = true;
   }, [aniversariantesMes.length, nomesAniversariantes, showToast]);
 
-  const doacoes = useMemo(() => {
-    const all = getDoacoes(cebId);
-    return filtrarDoacoes(all, { ano: filtroAno, mes: filtroMes, tipo: filtroTipo });
-  }, [filtroAno, filtroMes, filtroTipo]);
+  const doacoes = useMemo(
+    () => filtrarDoacoes(allDoacoes, { ano: filtroAno, mes: filtroMes, tipo: filtroTipo }),
+    [allDoacoes, filtroAno, filtroMes, filtroTipo],
+  );
 
   const stats = calcularRepasse(doacoes, config);
   const porMes = useMemo(() => {
-    const all = getDoacoes(cebId);
     const byMonth: Record<string, number> = {};
-    all.filter((d) => d.competenciaAno === filtroAno).forEach((d) => {
+    allDoacoes.filter((d) => d.competenciaAno === filtroAno).forEach((d) => {
       const k = String(d.competenciaMes);
       byMonth[k] = (byMonth[k] ?? 0) + d.valor;
     });
     return byMonth;
-  }, [filtroAno]);
+  }, [allDoacoes, filtroAno]);
 
   const maxVal = Math.max(...Object.values(porMes), 1);
 
@@ -439,6 +440,7 @@ export function AniversariantesCEBPage() {
   const { getDizimistas, getCEB } = useData();
   const cebId = user!.cebId!;
   const ceb = getCEB(cebId);
+  const baseDizimistas = getDizimistas(cebId).filter((d) => d.status === 'ativo');
   const hoje = new Date();
 
   const [modoFiltro, setModoFiltro] = useState<'mes' | 'periodo'>('mes');
@@ -447,10 +449,7 @@ export function AniversariantesCEBPage() {
   const [fimFiltro, setFimFiltro] = useState(hoje.toISOString().split('T')[0]);
   const [search, setSearch] = useState('');
 
-  const base = useMemo(
-    () => getDizimistas(cebId).filter((d) => d.status === 'ativo'),
-    [cebId, getDizimistas],
-  );
+  const base = useMemo(() => baseDizimistas, [baseDizimistas]);
 
   const aniversariantes = useMemo(() => {
     const filtrados = filtrarAniversariantes(base, modoFiltro === 'mes'

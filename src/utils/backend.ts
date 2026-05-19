@@ -3,9 +3,25 @@ import { storageGet, storageSet, KEYS } from './storage';
 import type { Administrador, Paroquia, CEB } from '../types';
 
 let USE_SUPABASE = false;
+// Permite forçar o backend via variáveis de ambiente Vite:
+const FORCE_SUPABASE = import.meta.env.VITE_FORCE_SUPABASE === 'true';
+const FORCE_LOCALSTORAGE = import.meta.env.VITE_FORCE_LOCALSTORAGE === 'true';
 
 // Detecta se Supabase está configurado
 export async function initializeBackend(): Promise<boolean> {
+  // Se o modo forçado estiver definido, respeitar sem checar conexão
+  if (FORCE_LOCALSTORAGE) {
+    USE_SUPABASE = false;
+    console.warn('Backend forçado: LocalStorage (VITE_FORCE_LOCALSTORAGE=true)');
+    return false;
+  }
+
+  if (FORCE_SUPABASE) {
+    USE_SUPABASE = true;
+    console.warn('Backend forçado: Supabase (VITE_FORCE_SUPABASE=true)');
+    return true;
+  }
+
   try {
     const connected = await testConnection();
     USE_SUPABASE = connected;

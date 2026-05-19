@@ -30,7 +30,7 @@ export function AniversariantesPage() {
     }
   }, [cebs]);
 
-  const linhasBase = useMemo<AniversarianteLinha[]>(() => {
+  const linhasBase: AniversarianteLinha[] = (() => {
     const cebSelecionada = cebs.find((c) => c.id === cebFiltro);
 
     if (cebFiltro) {
@@ -44,7 +44,7 @@ export function AniversariantesPage() {
         .filter((d) => d.status === 'ativo')
         .map((d) => ({ ...d, cebNome: ceb.nome })),
     );
-  }, [cebs, cebFiltro, getDizimistas]);
+  })();
 
   const aniversariantes = useMemo(() => {
     const filtrados = filtrarAniversariantes(linhasBase, modoFiltro === 'mes'

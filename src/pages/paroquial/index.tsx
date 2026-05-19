@@ -21,14 +21,15 @@ export function DashboardParoquial() {
   const paroquia = getParoquia(paroquiaId);
   const config = getConfiguracaoVigente(paroquiaId);
   const cebs = getCEBs(paroquiaId);
+  const allDoacoesParoquia = getDoacoesParoquia(paroquiaId);
 
   const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
   const [filtroCeb, setFiltroCeb] = useState('');
 
-  const doacoes = useMemo(() => {
-    const all = getDoacoesParoquia(paroquiaId);
-    return filtrarDoacoes(all, { ano: filtroAno, tipo: 'anual', cebId: filtroCeb || undefined });
-  }, [filtroAno, filtroCeb]);
+  const doacoes = useMemo(
+    () => filtrarDoacoes(allDoacoesParoquia, { ano: filtroAno, tipo: 'anual', cebId: filtroCeb || undefined }),
+    [allDoacoesParoquia, filtroAno, filtroCeb],
+  );
 
   const stats = calcularRepasse(doacoes, config);
   const porMes = agruparPorMes(doacoes);
@@ -90,7 +91,7 @@ export function DashboardParoquial() {
           {cebs.length === 0 ? (
             <p style={{ color: 'var(--text-3)', fontSize: 13 }}>Nenhuma CEB cadastrada</p>
           ) : cebs.map((ceb) => {
-            const cebDoacoes = filtrarDoacoes(getDoacoesParoquia(paroquiaId).filter((d) => d.cebId === ceb.id), { ano: filtroAno, tipo: 'anual' });
+            const cebDoacoes = filtrarDoacoes(allDoacoesParoquia.filter((d) => d.cebId === ceb.id), { ano: filtroAno, tipo: 'anual' });
             const cebStats = calcularRepasse(cebDoacoes, config);
             return (
               <div key={ceb.id} className="chart-bar-row">
@@ -600,15 +601,16 @@ export function RelatoriosParoquialPage() {
   const paroquiaId = user!.paroquiaId!;
   const config = getConfiguracaoVigente(paroquiaId);
   const cebs = getCEBs(paroquiaId);
+  const allDoacoesParoquia = getDoacoesParoquia(paroquiaId);
   const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
   const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1);
   const [filtroTipo, setFiltroTipo] = useState<'mensal' | 'trimestral' | 'semestral' | 'anual'>('mensal');
   const [filtroCeb, setFiltroCeb] = useState('');
 
-  const doacoes = useMemo(() => {
-    const all = getDoacoesParoquia(paroquiaId);
-    return filtrarDoacoes(all, { ano: filtroAno, mes: filtroMes, tipo: filtroTipo, cebId: filtroCeb || undefined });
-  }, [filtroAno, filtroMes, filtroTipo, filtroCeb]);
+  const doacoes = useMemo(
+    () => filtrarDoacoes(allDoacoesParoquia, { ano: filtroAno, mes: filtroMes, tipo: filtroTipo, cebId: filtroCeb || undefined }),
+    [allDoacoesParoquia, filtroAno, filtroMes, filtroTipo, filtroCeb],
+  );
 
   const stats = calcularRepasse(doacoes, config);
 

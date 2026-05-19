@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Analytics } from "@vercel/analytics/react"
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -11,7 +10,6 @@ import { AdminDashboard, ParoquiasPage, ConfiguracoesAdminPage } from './pages/a
 import { DashboardParoquial, CEBsPage, PastoraisPage, ConfiguracoesParoquialPage, ConfiguracoesCEBPage, RelatoriosParoquialPage } from './pages/paroquial/pages';
 import { AniversariantesPage } from './pages/paroquial/aniversariantes';
 import { DashboardCEB, DoacoesPage, DizimistasPage, AniversariantesCEBPage, ConselheirosPage } from './pages/cebs/index';
-import { seedInitialData } from './utils/seed';
 import { initializeBackend, getBackendType } from './utils/backend';
 import './index.css';
 
@@ -19,10 +17,10 @@ import './index.css';
 initializeBackend().then((connected) => {
   const backend = getBackendType();
   console.log(`✓ Backend inicializado: ${backend}`);
+  if (!connected) {
+    console.warn('Supabase não conectado. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
+  }
 });
-
-// Se Supabase não estiver configurado, usa dados locais
-seedInitialData();
 
 function ProtectedRoute({ children, role }: { children: React.ReactNode; role: 'admin' | 'paroquial' | 'ceb' }) {
   const { isAuthenticated, user, loading } = useAuth();
@@ -67,23 +65,16 @@ function AppRoutes() {
   );
 }
 
-function SeedWrapper({ children }: { children: React.ReactNode }) {
-  useEffect(() => { seedInitialData(); }, []);
-  return <>{children}</>;
-}
-
 export default function App() {
   return (
     <BrowserRouter>
       <DataProvider>
-        <SeedWrapper>
-          <AuthProvider>
-            <ToastProvider>
-              <AppRoutes />
-              <SpeedInsights />
-            </ToastProvider>
-          </AuthProvider>
-        </SeedWrapper>
+        <AuthProvider>
+          <ToastProvider>
+            <AppRoutes />
+            <SpeedInsights />
+          </ToastProvider>
+        </AuthProvider>
       </DataProvider>
     </BrowserRouter>
   );

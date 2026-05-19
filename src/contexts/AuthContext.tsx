@@ -1,18 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { AuthUser, UserRole } from '../types';
-import { storageGet, storageGetOne, storageSet, KEYS } from '../utils/storage';
-import type { Administrador, Paroquia, CEB } from '../types';
+import { storageGetOne, storageSet, KEYS } from '../utils/storage';
+import { supabase } from '../utils/supabase';
 
 interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   loading: boolean;
-  loginAdmin: (email: string, senha: string) => string | null;
-  loginParoquial: (codigoOuNome: string, senha: string) => string | null;
-  loginCEB: (codigoOuNomeParoquia: string, codigoOuNomeCeb: string, senha: string) => string | null;
+  loginAdmin: (email: string, senha: string) => Promise<string | null>;
+  loginParoquial: (codigoOuNome: string, senha: string) => Promise<string | null>;
+  loginCEB: (codigoOuNomeParoquia: string, codigoOuNomeCeb: string, senha: string) => Promise<string | null>;
   logout: () => void;
-  isFirstAccess: () => boolean;
-  setupAdminPassword: (email: string, senha: string) => void;
+  isFirstAccess: () => Promise<boolean>;
+  setupAdminPassword: (email: string, senha: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -27,57 +27,110 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const isFirstAccess = useCallback(() => {
-    const admins = storageGet<Administrador>(KEYS.ADMIN);
-    return admins.length === 0 || admins[0].senha === '';
+  const isFirstAccess = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('administradores')
+      .select('id, senha')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Erro ao verificar primeiro acesso:', error);
+      return true;
+    }
+    return !data || !data.senha;
   }, []);
 
-  const loginAdmin = useCallback((email: string, senha: string): string | null => {
-    const admins = storageGet<Administrador>(KEYS.ADMIN);
-    const admin = admins.find((a) => a.email === email && a.senha === senha && a.status === 'ativo');
-    if (!admin) return 'Email ou senha inválidos';
-    const u: AuthUser = { role: 'admin', adminId: admin.id, nome: admin.nome };
+  const loginAdmin = useCallback(async (email: string, senha: string): Promise<string | null> => {
+    const { data, error } = await supabase
+      .from('administradores')
+      .select('*')
+      .eq('email', email)
+      .eq('senha', senha)
+      .eq('status', 'ativo')
+      .maybeSingle();
+
+    if (error || !data) return 'Email ou senha inválidos';
+    const u: AuthUser = { role: 'admin', adminId: data.id, nome: data.nome };
     setUser(u);
     storageSet(KEYS.AUTH_SESSION, u);
     return null;
   }, []);
 
-  const loginParoquial = useCallback((codigoOuNome: string, senha: string): string | null => {
-    const paroquias = storageGet<Paroquia>(KEYS.PAROQUIAS);
-    const paroquia = paroquias.find(
-      (p) =>
-        (p.codigoParoquia === codigoOuNome ||
-          p.nome.toLowerCase().includes(codigoOuNome.toLowerCase())) &&
-        p.senha === senha &&
-        p.status === 'ativa',
-    );
-    if (!paroquia) return 'Paróquia não encontrada ou senha inválida';
-    const u: AuthUser = { role: 'paroquial', paroquiaId: paroquia.id, nome: paroquia.nome };
+  const loginParoquial = useCallback(async (codigoOuNome: string, senha: string): Promise<string | null> => {
+    let { data, error } = await supabase
+      .from('paroquias')
+      .select('*')
+      .eq('codigo_paroquia', codigoOuNome)
+      .eq('senha', senha)
+      .eq('status', 'ativa')
+      .limit(1)
+      .maybeSingle();
+
+    if (!data && !error) {
+      ({ data, error } = await supabase
+        .from('paroquias')
+        .select('*')
+        .ilike('nome', `%${codigoOuNome}%`)
+        .eq('senha', senha)
+        .eq('status', 'ativa')
+        .limit(1)
+        .maybeSingle());
+    }
+
+    if (error || !data) return 'Paróquia não encontrada ou senha inválida';
+    const u: AuthUser = { role: 'paroquial', paroquiaId: data.id, nome: data.nome };
     setUser(u);
     storageSet(KEYS.AUTH_SESSION, u);
     return null;
   }, []);
 
   const loginCEB = useCallback(
-    (codigoOuNomeParoquia: string, codigoOuNomeCeb: string, senha: string): string | null => {
-      const paroquias = storageGet<Paroquia>(KEYS.PAROQUIAS);
-      const paroquia = paroquias.find(
-        (p) =>
-          p.codigoParoquia === codigoOuNomeParoquia ||
-          p.nome.toLowerCase().includes(codigoOuNomeParoquia.toLowerCase()),
-      );
-      if (!paroquia) return 'Paróquia não encontrada';
+    async (codigoOuNomeParoquia: string, codigoOuNomeCeb: string, senha: string): Promise<string | null> => {
+      let { data: paroquia, error } = await supabase
+        .from('paroquias')
+        .select('id, nome, codigo_paroquia, status')
+        .eq('codigo_paroquia', codigoOuNomeParoquia)
+        .eq('status', 'ativa')
+        .limit(1)
+        .maybeSingle();
 
-      const cebs = storageGet<CEB>(KEYS.CEBS);
-      const ceb = cebs.find(
-        (c) =>
-          c.paroquiaId === paroquia.id &&
-          (c.codigoCeb === codigoOuNomeCeb ||
-            c.nome.toLowerCase().includes(codigoOuNomeCeb.toLowerCase())) &&
-          c.senha === senha &&
-          c.status === 'ativa',
-      );
-      if (!ceb) return 'CEB não encontrada ou senha inválida';
+      if (!paroquia && !error) {
+        ({ data: paroquia, error } = await supabase
+          .from('paroquias')
+          .select('id, nome, codigo_paroquia, status')
+          .ilike('nome', `%${codigoOuNomeParoquia}%`)
+          .eq('status', 'ativa')
+          .limit(1)
+          .maybeSingle());
+      }
+
+      if (error || !paroquia) return 'Paróquia não encontrada';
+
+      let { data: ceb, error: cebError } = await supabase
+        .from('cebs')
+        .select('*')
+        .eq('paroquia_id', paroquia.id)
+        .eq('codigo_ceb', codigoOuNomeCeb)
+        .eq('senha', senha)
+        .eq('status', 'ativa')
+        .limit(1)
+        .maybeSingle();
+
+      if (!ceb && !cebError) {
+        ({ data: ceb, error: cebError } = await supabase
+          .from('cebs')
+          .select('*')
+          .eq('paroquia_id', paroquia.id)
+          .ilike('nome', `%${codigoOuNomeCeb}%`)
+          .eq('senha', senha)
+          .eq('status', 'ativa')
+          .limit(1)
+          .maybeSingle());
+      }
+
+      if (cebError || !ceb) return 'CEB não encontrada ou senha inválida';
 
       const u: AuthUser = {
         role: 'ceb',
@@ -97,20 +150,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('dizimo_digital_' + KEYS.AUTH_SESSION);
   }, []);
 
-  const setupAdminPassword = useCallback((email: string, senha: string) => {
-    const admins = storageGet<Administrador>(KEYS.ADMIN);
-    const now = new Date().toISOString();
-    if (admins.length === 0) {
-      const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      storageSet(KEYS.ADMIN, [
-        { id, nome: 'Administrador', email, senha, status: 'ativo', createdAt: now, updatedAt: now },
-      ]);
-    } else {
-      admins[0].email = email;
-      admins[0].senha = senha;
-      admins[0].updatedAt = now;
-      storageSet(KEYS.ADMIN, admins);
+  const setupAdminPassword = useCallback(async (email: string, senha: string) => {
+    const { data: admin, error } = await supabase
+      .from('administradores')
+      .select('*')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Erro ao carregar administrador:', error);
+      return;
     }
+
+    if (!admin) {
+      const { error: insertError } = await supabase
+        .from('administradores')
+        .insert([
+          { nome: 'Administrador', email, senha, status: 'ativo' },
+        ]);
+      if (insertError) console.warn('Erro ao criar administrador:', insertError);
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from('administradores')
+      .update({ email, senha })
+      .eq('id', admin.id);
+
+    if (updateError) console.warn('Erro ao atualizar administrador:', updateError);
   }, []);
 
   return (

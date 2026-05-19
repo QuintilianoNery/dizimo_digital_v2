@@ -22,21 +22,29 @@ export function AdminLoginPage() {
   const [senhaConfirm, setSenhaConfirm] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     if (isAuthenticated && user?.role === 'admin') navigate('/admin/dashboard');
-    setIsFirst(isFirstAccess());
-  }, [isAuthenticated, user]);
 
-  const handleSubmit = () => {
+    const checkFirstAccess = async () => {
+      const first = await isFirstAccess();
+      if (!cancelled) setIsFirst(first);
+    };
+    checkFirstAccess();
+
+    return () => { cancelled = true; };
+  }, [isAuthenticated, user, isFirstAccess, navigate]);
+
+  const handleSubmit = async () => {
     setError('');
     if (isFirst) {
       if (!email || !senha) { setError('Preencha todos os campos'); return; }
       if (senha !== senhaConfirm) { setError('As senhas não coincidem'); return; }
       if (senha.length < 6) { setError('Senha deve ter ao menos 6 caracteres'); return; }
-      setupAdminPassword(email, senha);
-      const err = loginAdmin(email, senha);
+      await setupAdminPassword(email, senha);
+      const err = await loginAdmin(email, senha);
       if (!err) navigate('/admin/dashboard');
     } else {
-      const err = loginAdmin(email, senha);
+      const err = await loginAdmin(email, senha);
       if (err) setError(err);
       else navigate('/admin/dashboard');
     }
@@ -192,25 +200,25 @@ export function LoginPage() {
         }
       }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user, navigate, paroquias, getCEBs]);
 
-  const handleParoquialLogin = () => {
+  const handleParoquialLogin = async () => {
     setError('');
     if (!pSelected) { setError('Selecione a paróquia'); return; }
     if (!pSenha) { setError('Digite a senha'); return; }
-    const err = loginParoquial(pSelected.codigoParoquia, pSenha);
+    const err = await loginParoquial(pSelected.codigoParoquia, pSenha);
     if (err) { setError(err); return; }
     if (pRemember) storageSet('remember_login', { type: 'paroquial', paroquiaId: pSelected.id });
     else localStorage.removeItem('dizimo_digital_remember_login');
     navigate('/paroquial/dashboard');
   };
 
-  const handleCEBLogin = () => {
+  const handleCEBLogin = async () => {
     setError('');
     if (!cPSelected) { setError('Selecione a paróquia'); return; }
     if (!cSelected) { setError('Selecione a CEB'); return; }
     if (!cSenha) { setError('Digite a senha'); return; }
-    const err = loginCEB(cPSelected.codigoParoquia, cSelected.codigoCeb, cSenha);
+    const err = await loginCEB(cPSelected.codigoParoquia, cSelected.codigoCeb, cSenha);
     if (err) { setError(err); return; }
     if (cRemember) storageSet('remember_login', { type: 'ceb', paroquiaId: cPSelected.id, cebId: cSelected.id });
     else localStorage.removeItem('dizimo_digital_remember_login');
