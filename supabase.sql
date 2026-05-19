@@ -346,10 +346,180 @@ WHERE c.codigo_ceb = 'CEB-001' AND d.nome = 'Carlos Santos';
 -- ============================================================================
 -- POLÍTICAS RLS (Row Level Security) - Opcional para produção
 -- ============================================================================
--- Deixe comentado por enquanto - ativar após testes
+-- O app atual usa o client público do Supabase para autenticação por tabela.
+-- Se o schema real usar outros nomes, alinhe os nomes das tabelas no SQL e no app.
 
--- ALTER TABLE public.administradores ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE public.paroquias ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE public.cebs ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE public.dizimistas ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE public.doacoes ENABLE ROW LEVEL SECURITY;
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO anon, authenticated;
+
+ALTER TABLE public.administradores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.paroquias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.configuracoes_paroquias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cebs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pastorais_movimentos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conselheiros_comunitarios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.dizimistas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.doacoes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.alertas_percentuais ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS administradores_select_public ON public.administradores;
+DROP POLICY IF EXISTS administradores_insert_public ON public.administradores;
+DROP POLICY IF EXISTS administradores_update_public ON public.administradores;
+DROP POLICY IF EXISTS administradores_delete_public ON public.administradores;
+CREATE POLICY administradores_select_public ON public.administradores
+  FOR SELECT TO anon, authenticated
+  USING (true);
+CREATE POLICY administradores_insert_public ON public.administradores
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+CREATE POLICY administradores_update_public ON public.administradores
+  FOR UPDATE TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+CREATE POLICY administradores_delete_public ON public.administradores
+  FOR DELETE TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS paroquias_select_public ON public.paroquias;
+DROP POLICY IF EXISTS paroquias_insert_public ON public.paroquias;
+DROP POLICY IF EXISTS paroquias_update_public ON public.paroquias;
+DROP POLICY IF EXISTS paroquias_delete_public ON public.paroquias;
+CREATE POLICY paroquias_select_public ON public.paroquias
+  FOR SELECT TO anon, authenticated
+  USING (true);
+CREATE POLICY paroquias_insert_public ON public.paroquias
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+CREATE POLICY paroquias_update_public ON public.paroquias
+  FOR UPDATE TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+CREATE POLICY paroquias_delete_public ON public.paroquias
+  FOR DELETE TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS configuracoes_paroquias_select_public ON public.configuracoes_paroquias;
+DROP POLICY IF EXISTS configuracoes_paroquias_insert_public ON public.configuracoes_paroquias;
+DROP POLICY IF EXISTS configuracoes_paroquias_update_public ON public.configuracoes_paroquias;
+DROP POLICY IF EXISTS configuracoes_paroquias_delete_public ON public.configuracoes_paroquias;
+CREATE POLICY configuracoes_paroquias_select_public ON public.configuracoes_paroquias
+  FOR SELECT TO anon, authenticated
+  USING (true);
+CREATE POLICY configuracoes_paroquias_insert_public ON public.configuracoes_paroquias
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+CREATE POLICY configuracoes_paroquias_update_public ON public.configuracoes_paroquias
+  FOR UPDATE TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+CREATE POLICY configuracoes_paroquias_delete_public ON public.configuracoes_paroquias
+  FOR DELETE TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS cebs_select_public ON public.cebs;
+DROP POLICY IF EXISTS cebs_insert_public ON public.cebs;
+DROP POLICY IF EXISTS cebs_update_public ON public.cebs;
+DROP POLICY IF EXISTS cebs_delete_public ON public.cebs;
+CREATE POLICY cebs_select_public ON public.cebs
+  FOR SELECT TO anon, authenticated
+  USING (true);
+CREATE POLICY cebs_insert_public ON public.cebs
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+CREATE POLICY cebs_update_public ON public.cebs
+  FOR UPDATE TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+CREATE POLICY cebs_delete_public ON public.cebs
+  FOR DELETE TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS pastorais_movimentos_select_public ON public.pastorais_movimentos;
+DROP POLICY IF EXISTS pastorais_movimentos_insert_public ON public.pastorais_movimentos;
+DROP POLICY IF EXISTS pastorais_movimentos_update_public ON public.pastorais_movimentos;
+DROP POLICY IF EXISTS pastorais_movimentos_delete_public ON public.pastorais_movimentos;
+CREATE POLICY pastorais_movimentos_select_public ON public.pastorais_movimentos
+  FOR SELECT TO anon, authenticated
+  USING (true);
+CREATE POLICY pastorais_movimentos_insert_public ON public.pastorais_movimentos
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+CREATE POLICY pastorais_movimentos_update_public ON public.pastorais_movimentos
+  FOR UPDATE TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+CREATE POLICY pastorais_movimentos_delete_public ON public.pastorais_movimentos
+  FOR DELETE TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS conselheiros_comunitarios_select_public ON public.conselheiros_comunitarios;
+DROP POLICY IF EXISTS conselheiros_comunitarios_insert_public ON public.conselheiros_comunitarios;
+DROP POLICY IF EXISTS conselheiros_comunitarios_update_public ON public.conselheiros_comunitarios;
+DROP POLICY IF EXISTS conselheiros_comunitarios_delete_public ON public.conselheiros_comunitarios;
+CREATE POLICY conselheiros_comunitarios_select_public ON public.conselheiros_comunitarios
+  FOR SELECT TO anon, authenticated
+  USING (true);
+CREATE POLICY conselheiros_comunitarios_insert_public ON public.conselheiros_comunitarios
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+CREATE POLICY conselheiros_comunitarios_update_public ON public.conselheiros_comunitarios
+  FOR UPDATE TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+CREATE POLICY conselheiros_comunitarios_delete_public ON public.conselheiros_comunitarios
+  FOR DELETE TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS dizimistas_select_public ON public.dizimistas;
+DROP POLICY IF EXISTS dizimistas_insert_public ON public.dizimistas;
+DROP POLICY IF EXISTS dizimistas_update_public ON public.dizimistas;
+DROP POLICY IF EXISTS dizimistas_delete_public ON public.dizimistas;
+CREATE POLICY dizimistas_select_public ON public.dizimistas
+  FOR SELECT TO anon, authenticated
+  USING (true);
+CREATE POLICY dizimistas_insert_public ON public.dizimistas
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+CREATE POLICY dizimistas_update_public ON public.dizimistas
+  FOR UPDATE TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+CREATE POLICY dizimistas_delete_public ON public.dizimistas
+  FOR DELETE TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS doacoes_select_public ON public.doacoes;
+DROP POLICY IF EXISTS doacoes_insert_public ON public.doacoes;
+DROP POLICY IF EXISTS doacoes_update_public ON public.doacoes;
+DROP POLICY IF EXISTS doacoes_delete_public ON public.doacoes;
+CREATE POLICY doacoes_select_public ON public.doacoes
+  FOR SELECT TO anon, authenticated
+  USING (true);
+CREATE POLICY doacoes_insert_public ON public.doacoes
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+CREATE POLICY doacoes_update_public ON public.doacoes
+  FOR UPDATE TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+CREATE POLICY doacoes_delete_public ON public.doacoes
+  FOR DELETE TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS alertas_percentuais_select_public ON public.alertas_percentuais;
+DROP POLICY IF EXISTS alertas_percentuais_insert_public ON public.alertas_percentuais;
+DROP POLICY IF EXISTS alertas_percentuais_update_public ON public.alertas_percentuais;
+DROP POLICY IF EXISTS alertas_percentuais_delete_public ON public.alertas_percentuais;
+CREATE POLICY alertas_percentuais_select_public ON public.alertas_percentuais
+  FOR SELECT TO anon, authenticated
+  USING (true);
+CREATE POLICY alertas_percentuais_insert_public ON public.alertas_percentuais
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+CREATE POLICY alertas_percentuais_update_public ON public.alertas_percentuais
+  FOR UPDATE TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+CREATE POLICY alertas_percentuais_delete_public ON public.alertas_percentuais
+  FOR DELETE TO anon, authenticated
+  USING (true);

@@ -18,7 +18,7 @@ initializeBackend().then((connected) => {
   const backend = getBackendType();
   console.log(`✓ Backend inicializado: ${backend}`);
   if (!connected) {
-    console.warn('Supabase não conectado. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
+    console.warn('Supabase não conectado. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY ou VITE_SUPABASE_PUBLISHABLE_KEY.');
   }
 });
 
