@@ -256,22 +256,31 @@ CREATE TRIGGER trigger_update_alertas_percentuais BEFORE UPDATE ON public.alerta
 -- DADOS INICIAIS DE TESTE
 -- ============================================================================
 
--- Admin
-INSERT INTO public.administradores (nome, email, senha, status) VALUES
-('Administrador', 'admin@dizimo.com', 'admin123', 'ativo'::status_admin);
+-- Administrador
+INSERT INTO public.administradores (nome, email, senha, status)
+VALUES ('Administrador', 'admin@dizimo.com', 'admin123', 'ativo'::status_admin)
+ON CONFLICT (email) DO NOTHING;
 
--- Paróquia
+-- Paróquias
 INSERT INTO public.paroquias 
 (administrador_criou_id, codigo_paroquia, nome, email, telefone, endereco, fundacao, cnpj, paroco_nome, email_login_secretaria, senha, status)
 SELECT id, '001', 'Nossa Senhora das Graças', 'paroquia@nsgraças.com.br', '(27) 3522-1234',
-      'Rua das Flores, 100 - Centro, Cachoeiro de Itapemirim - ES', '1950-05-13'::date, '12.345.678/0001-90',
-       'Pe. João da Silva', 'secretaria@nsgraças.com.br', 'paroquia123', 'ativa'::status_paroquia
+  'Rua das Flores, 100 - Centro, Cachoeiro de Itapemirim - ES', '1950-05-13'::date, '12.345.678/0001-90',
+   'Pe. João da Silva', 'secretaria@nsgraças.com.br', 'paroquia123', 'ativa'::status_paroquia
+FROM public.administradores WHERE email = 'admin@dizimo.com'
+UNION ALL
+SELECT id, '002', 'São Felipe', 'paroquia@saofelipe.com.br', '(27) 3555-2026',
+  'Avenida São Felipe, 50 - Centro, São Felipe - ES', '1968-08-10'::date, '98.765.432/0001-10',
+   'Pe. Antônio Rodrigues', 'secretaria@saofelipe.com.br', 'paroquia123', 'ativa'::status_paroquia
 FROM public.administradores WHERE email = 'admin@dizimo.com';
 
--- Configuração da Paróquia
+-- Configurações das Paróquias
 INSERT INTO public.configuracoes_paroquias (paroquia_id, percentual_dizimo_cebs, percentual_oferta_cebs, percentual_curia_diocesana, percentual_diocese, vigente_desde, ativa)
 SELECT id, 30.00, 20.00, 5.00, 10.00, '2024-01-01'::date, true
-FROM public.paroquias WHERE codigo_paroquia = '001';
+FROM public.paroquias WHERE codigo_paroquia = '001'
+UNION ALL
+SELECT id, 35.00, 25.00, 5.00, 10.00, '2024-01-01'::date, true
+FROM public.paroquias WHERE codigo_paroquia = '002';
 
 -- CEBs
 INSERT INTO public.cebs (paroquia_id, codigo_ceb, nome, email_login, senha, telefone, status)
@@ -282,7 +291,13 @@ SELECT id, 'CEB-002', 'CEB Santa Maria', 'santamaria@ceb.com', 'ceb123', '(27) 9
 FROM public.paroquias WHERE codigo_paroquia = '001'
 UNION ALL
 SELECT id, 'CEB-003', 'CEB São Francisco', 'saofrancisco@ceb.com', 'ceb123', '(27) 99903-3333', 'ativa'::status_ceb
-FROM public.paroquias WHERE codigo_paroquia = '001';
+FROM public.paroquias WHERE codigo_paroquia = '001'
+UNION ALL
+SELECT id, 'CEB-004', 'CEB São Felipe I', 'saofelipe1@ceb.com', 'ceb123', '(27) 99904-4444', 'ativa'::status_ceb
+FROM public.paroquias WHERE codigo_paroquia = '002'
+UNION ALL
+SELECT id, 'CEB-005', 'CEB São Felipe II', 'saofelipe2@ceb.com', 'ceb123', '(27) 99905-5555', 'ativa'::status_ceb
+FROM public.paroquias WHERE codigo_paroquia = '002';
 
 -- Pastorais e Movimentos
 INSERT INTO public.pastorais_movimentos (nome, tipo, status) VALUES
@@ -315,33 +330,80 @@ FROM public.cebs c
 CROSS JOIN public.pastorais_movimentos pm
 WHERE c.codigo_ceb = 'CEB-001' AND pm.nome = 'Tesoureiro';
 
--- Dizimistas (exemplo para primeira CEB)
+-- Dizimistas (3 por CEB)
 INSERT INTO public.dizimistas (ceb_id, nome, telefone, email, endereco, data_nascimento, status)
-SELECT id, 'Pedro Costa', '(27) 99901-6001', 'pedro@example.com', 'Rua A, 123', '1980-01-15'::date, 'ativo'::status_pessoa
-FROM public.cebs WHERE codigo_ceb = 'CEB-001'
-UNION ALL
-SELECT id, 'Ana Silva', '(27) 99901-6002', 'ana@example.com', 'Rua B, 456', '1985-03-20'::date, 'ativo'::status_pessoa
-FROM public.cebs WHERE codigo_ceb = 'CEB-001'
-UNION ALL
-SELECT id, 'Carlos Santos', '(27) 99901-6003', 'carlos@example.com', 'Rua C, 789', '1978-07-10'::date, 'ativo'::status_pessoa
-FROM public.cebs WHERE codigo_ceb = 'CEB-001';
+SELECT c.id, v.nome, v.telefone, v.email, v.endereco, v.data_nascimento, 'ativo'::status_pessoa
+FROM public.cebs c
+JOIN (
+  VALUES
+    ('CEB-001', 'Pedro Costa', '(27) 99901-6001', 'pedro@example.com', 'Rua A, 123', '1980-01-15'::date),
+    ('CEB-001', 'Ana Silva', '(27) 99901-6002', 'ana@example.com', 'Rua B, 456', '1985-03-20'::date),
+    ('CEB-001', 'Carlos Santos', '(27) 99901-6003', 'carlos@example.com', 'Rua C, 789', '1978-07-10'::date),
+    ('CEB-002', 'Juliana Oliveira', '(27) 99902-6001', 'juliana@example.com', 'Rua D, 123', '1982-02-14'::date),
+    ('CEB-002', 'Marcos Lima', '(27) 99902-6002', 'marcos@example.com', 'Rua E, 456', '1979-06-18'::date),
+    ('CEB-002', 'Fernanda Souza', '(27) 99902-6003', 'fernanda@example.com', 'Rua F, 789', '1987-11-09'::date),
+    ('CEB-003', 'Paulo Mendes', '(27) 99903-6001', 'paulo@example.com', 'Rua G, 123', '1981-04-12'::date),
+    ('CEB-003', 'Carla Ribeiro', '(27) 99903-6002', 'carla@example.com', 'Rua H, 456', '1986-08-22'::date),
+    ('CEB-003', 'Roberto Almeida', '(27) 99903-6003', 'roberto@example.com', 'Rua I, 789', '1977-12-03'::date),
+    ('CEB-004', 'Luciana Nogueira', '(27) 99904-6001', 'luciana@example.com', 'Rua J, 123', '1983-05-17'::date),
+    ('CEB-004', 'Thiago Pereira', '(27) 99904-6002', 'thiago@example.com', 'Rua K, 456', '1984-09-25'::date),
+    ('CEB-004', 'Renata Barros', '(27) 99904-6003', 'renata@example.com', 'Rua L, 789', '1990-01-08'::date),
+    ('CEB-005', 'Felipe Costa', '(27) 99905-6001', 'felipe@example.com', 'Rua M, 123', '1988-03-11'::date),
+    ('CEB-005', 'Sonia Martins', '(27) 99905-6002', 'sonia@example.com', 'Rua N, 456', '1981-07-27'::date),
+    ('CEB-005', 'Eduardo Rocha', '(27) 99905-6003', 'eduardo@example.com', 'Rua O, 789', '1976-10-19'::date)
+) AS v(codigo_ceb, nome, telefone, email, endereco, data_nascimento)
+ON v.codigo_ceb = c.codigo_ceb;
 
--- Doacoes (exemplo)
+-- Doacoes (5 movimentações por CEB, 3 dizimistas em cada movimentação)
+WITH dizimistas_ordenados AS (
+  SELECT
+    d.id,
+    d.ceb_id,
+    ROW_NUMBER() OVER (PARTITION BY d.ceb_id ORDER BY d.nome) AS rn
+  FROM public.dizimistas d
+),
+movimentacoes AS (
+  SELECT
+    c.id AS ceb_id,
+    c.nome AS ceb_nome,
+    gs.movimento_num
+  FROM public.cebs c
+  CROSS JOIN generate_series(1, 5) AS gs(movimento_num)
+)
 INSERT INTO public.doacoes (ceb_id, dizimista_id, valor, competencia_mes, competencia_ano, tipo_doacao, forma_pagamento, observacoes)
-SELECT c.id, d.id, 100.00, 5, 2024, 'dizimo'::tipo_doacao, 'pix'::forma_pagamento, 'Maio 2024'
-FROM public.cebs c
-CROSS JOIN public.dizimistas d
-WHERE c.codigo_ceb = 'CEB-001' AND d.nome = 'Pedro Costa'
-UNION ALL
-SELECT c.id, d.id, 150.00, 5, 2024, 'dizimo'::tipo_doacao, 'dinheiro'::forma_pagamento, 'Maio 2024'
-FROM public.cebs c
-CROSS JOIN public.dizimistas d
-WHERE c.codigo_ceb = 'CEB-001' AND d.nome = 'Ana Silva'
-UNION ALL
-SELECT c.id, d.id, 200.00, 5, 2024, 'oferta'::tipo_doacao, 'transferencia'::forma_pagamento, 'Maio 2024'
-FROM public.cebs c
-CROSS JOIN public.dizimistas d
-WHERE c.codigo_ceb = 'CEB-001' AND d.nome = 'Carlos Santos';
+SELECT
+  m.ceb_id,
+  d.id,
+  80.00 + (m.movimento_num * 15) + (d.rn * 10),
+  m.movimento_num,
+  EXTRACT(YEAR FROM CURRENT_DATE)::integer,
+  'dizimo'::tipo_doacao,
+  CASE ((m.movimento_num + d.rn) % 3)
+    WHEN 0 THEN 'dinheiro'::forma_pagamento
+    WHEN 1 THEN 'pix'::forma_pagamento
+    ELSE 'transferencia'::forma_pagamento
+  END,
+  format('Movimentação %s - %s', m.movimento_num, m.ceb_nome)
+FROM movimentacoes m
+JOIN dizimistas_ordenados d
+  ON d.ceb_id = m.ceb_id
+ AND d.rn <= 3;
+
+-- ============================================================================
+-- POLÍTICAS RLS (Row Level Security) - Opcional para produção
+-- ============================================================================
+-- O app atual usa o client público do Supabase para autenticação por tabela.
+-- Se o schema real usar outros nomes, alinhe os nomes das tabelas no SQL e no app.
+
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+
+-- ============================================================================
+-- POLÍTICAS RLS (Row Level Security) - Opcional para produção
+-- ============================================================================
+-- O app atual usa o client público do Supabase para autenticação por tabela.
+-- Se o schema real usar outros nomes, alinhe os nomes das tabelas no SQL e no app.
+
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
 
 -- ============================================================================
 -- POLÍTICAS RLS (Row Level Security) - Opcional para produção
@@ -411,115 +473,5 @@ CREATE POLICY configuracoes_paroquias_insert_public ON public.configuracoes_paro
 CREATE POLICY configuracoes_paroquias_update_public ON public.configuracoes_paroquias
   FOR UPDATE TO anon, authenticated
   USING (true)
-  WITH CHECK (true);
-CREATE POLICY configuracoes_paroquias_delete_public ON public.configuracoes_paroquias
-  FOR DELETE TO anon, authenticated
-  USING (true);
 
-DROP POLICY IF EXISTS cebs_select_public ON public.cebs;
-DROP POLICY IF EXISTS cebs_insert_public ON public.cebs;
-DROP POLICY IF EXISTS cebs_update_public ON public.cebs;
-DROP POLICY IF EXISTS cebs_delete_public ON public.cebs;
-CREATE POLICY cebs_select_public ON public.cebs
-  FOR SELECT TO anon, authenticated
-  USING (true);
-CREATE POLICY cebs_insert_public ON public.cebs
-  FOR INSERT TO anon, authenticated
   WITH CHECK (true);
-CREATE POLICY cebs_update_public ON public.cebs
-  FOR UPDATE TO anon, authenticated
-  USING (true)
-  WITH CHECK (true);
-CREATE POLICY cebs_delete_public ON public.cebs
-  FOR DELETE TO anon, authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS pastorais_movimentos_select_public ON public.pastorais_movimentos;
-DROP POLICY IF EXISTS pastorais_movimentos_insert_public ON public.pastorais_movimentos;
-DROP POLICY IF EXISTS pastorais_movimentos_update_public ON public.pastorais_movimentos;
-DROP POLICY IF EXISTS pastorais_movimentos_delete_public ON public.pastorais_movimentos;
-CREATE POLICY pastorais_movimentos_select_public ON public.pastorais_movimentos
-  FOR SELECT TO anon, authenticated
-  USING (true);
-CREATE POLICY pastorais_movimentos_insert_public ON public.pastorais_movimentos
-  FOR INSERT TO anon, authenticated
-  WITH CHECK (true);
-CREATE POLICY pastorais_movimentos_update_public ON public.pastorais_movimentos
-  FOR UPDATE TO anon, authenticated
-  USING (true)
-  WITH CHECK (true);
-CREATE POLICY pastorais_movimentos_delete_public ON public.pastorais_movimentos
-  FOR DELETE TO anon, authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS conselheiros_comunitarios_select_public ON public.conselheiros_comunitarios;
-DROP POLICY IF EXISTS conselheiros_comunitarios_insert_public ON public.conselheiros_comunitarios;
-DROP POLICY IF EXISTS conselheiros_comunitarios_update_public ON public.conselheiros_comunitarios;
-DROP POLICY IF EXISTS conselheiros_comunitarios_delete_public ON public.conselheiros_comunitarios;
-CREATE POLICY conselheiros_comunitarios_select_public ON public.conselheiros_comunitarios
-  FOR SELECT TO anon, authenticated
-  USING (true);
-CREATE POLICY conselheiros_comunitarios_insert_public ON public.conselheiros_comunitarios
-  FOR INSERT TO anon, authenticated
-  WITH CHECK (true);
-CREATE POLICY conselheiros_comunitarios_update_public ON public.conselheiros_comunitarios
-  FOR UPDATE TO anon, authenticated
-  USING (true)
-  WITH CHECK (true);
-CREATE POLICY conselheiros_comunitarios_delete_public ON public.conselheiros_comunitarios
-  FOR DELETE TO anon, authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS dizimistas_select_public ON public.dizimistas;
-DROP POLICY IF EXISTS dizimistas_insert_public ON public.dizimistas;
-DROP POLICY IF EXISTS dizimistas_update_public ON public.dizimistas;
-DROP POLICY IF EXISTS dizimistas_delete_public ON public.dizimistas;
-CREATE POLICY dizimistas_select_public ON public.dizimistas
-  FOR SELECT TO anon, authenticated
-  USING (true);
-CREATE POLICY dizimistas_insert_public ON public.dizimistas
-  FOR INSERT TO anon, authenticated
-  WITH CHECK (true);
-CREATE POLICY dizimistas_update_public ON public.dizimistas
-  FOR UPDATE TO anon, authenticated
-  USING (true)
-  WITH CHECK (true);
-CREATE POLICY dizimistas_delete_public ON public.dizimistas
-  FOR DELETE TO anon, authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS doacoes_select_public ON public.doacoes;
-DROP POLICY IF EXISTS doacoes_insert_public ON public.doacoes;
-DROP POLICY IF EXISTS doacoes_update_public ON public.doacoes;
-DROP POLICY IF EXISTS doacoes_delete_public ON public.doacoes;
-CREATE POLICY doacoes_select_public ON public.doacoes
-  FOR SELECT TO anon, authenticated
-  USING (true);
-CREATE POLICY doacoes_insert_public ON public.doacoes
-  FOR INSERT TO anon, authenticated
-  WITH CHECK (true);
-CREATE POLICY doacoes_update_public ON public.doacoes
-  FOR UPDATE TO anon, authenticated
-  USING (true)
-  WITH CHECK (true);
-CREATE POLICY doacoes_delete_public ON public.doacoes
-  FOR DELETE TO anon, authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS alertas_percentuais_select_public ON public.alertas_percentuais;
-DROP POLICY IF EXISTS alertas_percentuais_insert_public ON public.alertas_percentuais;
-DROP POLICY IF EXISTS alertas_percentuais_update_public ON public.alertas_percentuais;
-DROP POLICY IF EXISTS alertas_percentuais_delete_public ON public.alertas_percentuais;
-CREATE POLICY alertas_percentuais_select_public ON public.alertas_percentuais
-  FOR SELECT TO anon, authenticated
-  USING (true);
-CREATE POLICY alertas_percentuais_insert_public ON public.alertas_percentuais
-  FOR INSERT TO anon, authenticated
-  WITH CHECK (true);
-CREATE POLICY alertas_percentuais_update_public ON public.alertas_percentuais
-  FOR UPDATE TO anon, authenticated
-  USING (true)
-  WITH CHECK (true);
-CREATE POLICY alertas_percentuais_delete_public ON public.alertas_percentuais
-  FOR DELETE TO anon, authenticated
-  USING (true);
