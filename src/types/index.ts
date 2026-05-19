@@ -130,6 +130,8 @@ export interface AuthUser {
   cebId?: string;
   adminId?: string;
   nome?: string;
+  sessionStartedAt?: string;
+  sessionExpiresAt?: string;
 }
 
 export interface DashboardStats {

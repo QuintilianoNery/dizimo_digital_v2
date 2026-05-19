@@ -475,3 +475,21 @@ CREATE POLICY configuracoes_paroquias_update_public ON public.configuracoes_paro
   USING (true)
 
   WITH CHECK (true);
+
+DROP POLICY IF EXISTS cebs_select_public ON public.cebs;
+DROP POLICY IF EXISTS cebs_insert_public ON public.cebs;
+DROP POLICY IF EXISTS cebs_update_public ON public.cebs;
+DROP POLICY IF EXISTS cebs_delete_public ON public.cebs;
+CREATE POLICY cebs_select_public ON public.cebs
+  FOR SELECT TO anon, authenticated
+  USING (true);
+CREATE POLICY cebs_insert_public ON public.cebs
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+CREATE POLICY cebs_update_public ON public.cebs
+  FOR UPDATE TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+CREATE POLICY cebs_delete_public ON public.cebs
+  FOR DELETE TO anon, authenticated
+  USING (true);

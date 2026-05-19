@@ -68,14 +68,14 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <DataProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <DataProvider>
           <ToastProvider>
             <AppRoutes />
             <SpeedInsights />
           </ToastProvider>
-        </AuthProvider>
-      </DataProvider>
+        </DataProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

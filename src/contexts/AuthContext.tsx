@@ -1,7 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { AuthUser, UserRole } from '../types';
-import { storageGetOne, storageSet, KEYS } from '../utils/storage';
-import { supabase } from '../utils/supabase';
+import { KEYS } from '../utils/storage';
+import { supabase, hasSupabaseConfig } from '../utils/supabase';
+import {
+  clearAuthSession,
+  getAuthSessionRemainingMs,
+  isAuthSessionActive,
+  loadAuthSession,
+  persistAuthSession,
+} from '../utils/authSession';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -21,13 +28,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const logout = useCallback(() => {
+    setUser(null);
+    clearAuthSession();
+  }, []);
+
   useEffect(() => {
-    const session = storageGetOne<AuthUser>(KEYS.AUTH_SESSION);
+    const session = loadAuthSession();
     if (session) setUser(session);
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const remainingMs = getAuthSessionRemainingMs(user);
+    if (remainingMs <= 0) {
+      logout();
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      logout();
+    }, remainingMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [logout, user]);
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== 'dizimo_digital_' + KEYS.AUTH_SESSION) return;
+
+      const session = loadAuthSession();
+      setUser(session);
+      if (!session) setLoading(false);
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const isFirstAccess = useCallback(async () => {
+    if (!hasSupabaseConfig) {
+      console.warn('Supabase não configurado. Não é possível verificar o primeiro acesso.');
+      return false;
+    }
+
     const { count, error } = await supabase
       .from('administradores')
       .select('id', { count: 'exact', head: true });
@@ -40,6 +86,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loginAdmin = useCallback(async (email: string, senha: string): Promise<string | null> => {
+    if (!hasSupabaseConfig) return 'Supabase não configurado no projeto';
+
     const { data, error } = await supabase
       .from('administradores')
       .select('*')
@@ -50,12 +98,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (error || !data) return 'Email ou senha inválidos';
     const u: AuthUser = { role: 'admin', adminId: data.id, nome: data.nome };
-    setUser(u);
-    storageSet(KEYS.AUTH_SESSION, u);
+    const session = persistAuthSession(u);
+    setUser(session);
     return null;
   }, []);
 
   const loginParoquial = useCallback(async (codigoOuNome: string, senha: string): Promise<string | null> => {
+    if (!hasSupabaseConfig) return 'Supabase não configurado no projeto';
+
     let { data, error } = await supabase
       .from('paroquias')
       .select('*')
@@ -78,13 +128,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (error || !data) return 'Paróquia não encontrada ou senha inválida';
     const u: AuthUser = { role: 'paroquial', paroquiaId: data.id, nome: data.nome };
-    setUser(u);
-    storageSet(KEYS.AUTH_SESSION, u);
+    const session = persistAuthSession(u);
+    setUser(session);
     return null;
   }, []);
 
   const loginCEB = useCallback(
     async (codigoOuNomeParoquia: string, codigoOuNomeCeb: string, senha: string): Promise<string | null> => {
+      if (!hasSupabaseConfig) return 'Supabase não configurado no projeto';
+
       let { data: paroquia, error } = await supabase
         .from('paroquias')
         .select('id, nome, codigo_paroquia, status')
@@ -135,19 +187,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         cebId: ceb.id,
         nome: ceb.nome,
       };
-      setUser(u);
-      storageSet(KEYS.AUTH_SESSION, u);
+      const session = persistAuthSession(u);
+      setUser(session);
       return null;
     },
     [],
   );
 
-  const logout = useCallback(() => {
-    setUser(null);
-    localStorage.removeItem('dizimo_digital_' + KEYS.AUTH_SESSION);
-  }, []);
-
   const setupAdminPassword = useCallback(async (email: string, senha: string) => {
+    if (!hasSupabaseConfig) {
+      console.warn('Supabase não configurado. Não é possível criar ou atualizar o administrador.');
+      return;
+    }
+
     const { data: admin, error } = await supabase
       .from('administradores')
       .select('*')
@@ -180,7 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated: !!user, loading, loginAdmin, loginParoquial, loginCEB, logout, isFirstAccess, setupAdminPassword }}
+      value={{ user, isAuthenticated: !!user && isAuthSessionActive(user), loading, loginAdmin, loginParoquial, loginCEB, logout, isFirstAccess, setupAdminPassword }}
     >
       {children}
     </AuthContext.Provider>

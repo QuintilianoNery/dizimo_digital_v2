@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import { supabase } from '../utils/supabase';
+import { isAuthSessionActive } from '../utils/authSession';
+import { useAuth } from './AuthContext';
 import type {
   Paroquia, CEB, ConfiguracaoParoquia, PastoralMovimento,
   ConselheiroComunitario, Dizimista, Doacao, AlertaPercentual, Administrador,
@@ -197,6 +199,7 @@ function removeById<T extends { id: string }>(items: T[], id: string): T[] {
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
   const [administrador, setAdministrador] = useState<Administrador | null>(null);
   const [paroquias, setParoquias] = useState<Paroquia[]>([]);
   const [configuracoes, setConfiguracoes] = useState<ConfiguracaoParoquia[]>([]);
@@ -206,8 +209,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [dizimistas, setDizimistas] = useState<Dizimista[]>([]);
   const [doacoes, setDoacoes] = useState<Doacao[]>([]);
   const [alertas, setAlertas] = useState<AlertaPercentual[]>([]);
+  const canUseBackend = isAuthenticated && !authLoading && isAuthSessionActive(user);
 
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!canUseBackend) {
+      setAdministrador(null);
+      setParoquias([]);
+      setConfiguracoes([]);
+      setCebs([]);
+      setPastorais([]);
+      setConselheiros([]);
+      setDizimistas([]);
+      setDoacoes([]);
+      setAlertas([]);
+      return;
+    }
+
     let cancelled = false;
 
     const loadAll = async () => {
@@ -258,7 +277,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     loadAll();
     return () => { cancelled = true; };
-  }, []);
+  }, [authLoading, canUseBackend]);
 
   const getParoquias = useCallback(() => paroquias, [paroquias]);
   const getParoquia = useCallback(
@@ -292,6 +311,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setParoquias((prev) => upsertById(prev, p));
 
     void (async () => {
+      if (!canUseBackend) return;
+
       let resolvedAdminId = adminId;
       if (!resolvedAdminId) {
         const { data: adminRow, error: adminError } = await supabase
@@ -337,7 +358,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     })();
 
     return p;
-  }, [administrador, paroquias]);
+  }, [administrador, canUseBackend, paroquias]);
 
   const deleteParoquia = useCallback((id: string) => {
     setParoquias((prev) => removeById(prev, id));
@@ -345,10 +366,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setConfiguracoes((prev) => prev.filter((c) => c.paroquiaId !== id));
     setAlertas((prev) => prev.filter((a) => a.paroquiaId !== id));
 
+    if (!canUseBackend) return;
+
     void supabase.from('paroquias').delete().eq('id', id).then(({ error }) => {
       if (error) console.warn('Erro ao excluir paróquia no Supabase:', error);
     });
-  }, []);
+  }, [canUseBackend]);
 
   const getConfiguracaoVigente = useCallback((paroquiaId: string): ConfiguracaoParoquia | null => {
     const configs = configuracoes
@@ -386,6 +409,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setConfiguracoes((prev) => upsertById(prev, c));
 
       void (async () => {
+        if (!canUseBackend) return;
+
         const payload = {
           id: c.id,
           paroquia_id: c.paroquiaId,
@@ -442,7 +467,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       return c;
     },
-    [cebs, configuracoes],
+    [cebs, canUseBackend, configuracoes],
   );
 
   const getCEBs = useCallback(
@@ -509,10 +534,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setDoacoes((prev) => prev.filter((d) => d.cebId !== id));
     setAlertas((prev) => prev.filter((a) => a.cebId !== id));
 
+    if (!canUseBackend) return;
+
     void supabase.from('cebs').delete().eq('id', id).then(({ error }) => {
       if (error) console.warn('Erro ao excluir CEB no Supabase:', error);
     });
-  }, []);
+  }, [canUseBackend]);
 
   const getPastorais = useCallback(() => pastorais, [pastorais]);
   const savePastoral = useCallback((data: Partial<PastoralMovimento> & { nome: string }): PastoralMovimento => {
@@ -530,6 +557,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setPastorais((prev) => upsertById(prev, p));
 
     void (async () => {
+      if (!canUseBackend) return;
+
       const payload = {
         id: p.id,
         nome: p.nome,
@@ -549,13 +578,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     })();
 
     return p;
-  }, [pastorais]);
+  }, [canUseBackend, pastorais]);
   const deletePastoral = useCallback((id: string) => {
     setPastorais((prev) => removeById(prev, id));
+    if (!canUseBackend) return;
+
     void supabase.from('pastorais_movimentos').delete().eq('id', id).then(({ error }) => {
       if (error) console.warn('Erro ao excluir pastoral no Supabase:', error);
     });
-  }, []);
+  }, [canUseBackend]);
 
   const getConselheiros = useCallback(
     (cebId: string) => conselheiros.filter((c) => c.cebId === cebId),
@@ -581,6 +612,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setConselheiros((prev) => upsertById(prev, c));
 
       void (async () => {
+        if (!canUseBackend) return;
+
         const payload = {
           id: c.id,
           ceb_id: c.cebId,
@@ -605,14 +638,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       return c;
     },
-    [conselheiros],
+    [canUseBackend, conselheiros],
   );
   const deleteConselheiro = useCallback((id: string) => {
     setConselheiros((prev) => removeById(prev, id));
+    if (!canUseBackend) return;
+
     void supabase.from('conselheiros_comunitarios').delete().eq('id', id).then(({ error }) => {
       if (error) console.warn('Erro ao excluir conselheiro no Supabase:', error);
     });
-  }, []);
+  }, [canUseBackend]);
 
   const getDizimistas = useCallback(
     (cebId: string) => dizimistas.filter((d) => d.cebId === cebId),
@@ -638,6 +673,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setDizimistas((prev) => upsertById(prev, d));
 
       void (async () => {
+        if (!canUseBackend) return;
+
         const payload = {
           id: d.id,
           ceb_id: d.cebId,
@@ -662,14 +699,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       return d;
     },
-    [dizimistas],
+    [canUseBackend, dizimistas],
   );
   const deleteDizimista = useCallback((id: string) => {
     setDizimistas((prev) => removeById(prev, id));
+    if (!canUseBackend) return;
+
     void supabase.from('dizimistas').delete().eq('id', id).then(({ error }) => {
       if (error) console.warn('Erro ao excluir dizimista no Supabase:', error);
     });
-  }, []);
+  }, [canUseBackend]);
 
   const getDoacoes = useCallback(
     (cebId?: string) => (cebId ? doacoes.filter((d) => d.cebId === cebId) : doacoes),
@@ -704,6 +743,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setDoacoes((prev) => upsertById(prev, d));
 
       void (async () => {
+        if (!canUseBackend) return;
+
         const payload = {
           id: d.id,
           ceb_id: d.cebId,
@@ -730,14 +771,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       return d;
     },
-    [doacoes],
+    [canUseBackend, doacoes],
   );
   const deleteDoacao = useCallback((id: string) => {
     setDoacoes((prev) => removeById(prev, id));
+    if (!canUseBackend) return;
+
     void supabase.from('doacoes').delete().eq('id', id).then(({ error }) => {
       if (error) console.warn('Erro ao excluir doação no Supabase:', error);
     });
-  }, []);
+  }, [canUseBackend]);
 
   const getAlertas = useCallback(
     (cebId: string) =>
@@ -751,10 +794,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const now = new Date().toISOString();
     setAlertas((prev) => prev.map((a) => (a.id === id ? { ...a, lidoEm: now, updatedAt: now } : a)));
 
+    if (!canUseBackend) return;
+
     void supabase.from('alertas_percentuais').update({ lido_em: now }).eq('id', id).then(({ error }) => {
       if (error) console.warn('Erro ao marcar alerta como lido no Supabase:', error);
     });
-  }, []);
+  }, [canUseBackend]);
 
   const getAdministrador = useCallback(() => administrador, [administrador]);
 
@@ -780,6 +825,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       setAdministrador(updated);
 
+      if (!canUseBackend) return null;
+
       void supabase
         .from('administradores')
         .update({
@@ -795,7 +842,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       return null;
     },
-    [administrador],
+    [administrador, canUseBackend],
   );
 
   const updateAdminSenha = useCallback(
@@ -822,6 +869,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       };
       setParoquias((prev) => upsertById(prev, updated));
 
+      if (!canUseBackend) return null;
+
       void supabase
         .from('paroquias')
         .update({
@@ -835,7 +884,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       return null;
     },
-    [paroquias],
+    [canUseBackend, paroquias],
   );
 
   const updateCEBConta = useCallback(
@@ -855,6 +904,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       };
       setCebs((prev) => upsertById(prev, updated));
 
+      if (!canUseBackend) return null;
+
       void supabase
         .from('cebs')
         .update({
@@ -868,7 +919,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       return null;
     },
-    [cebs],
+    [canUseBackend, cebs],
   );
 
   const resetSenhaParoquia = useCallback((paroquiaId: string, senhaNova: string) => {
@@ -877,10 +928,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const updated = { ...current, senha: senhaNova, updatedAt: new Date().toISOString() };
     setParoquias((prev) => upsertById(prev, updated));
 
+    if (!canUseBackend) return;
+
     void supabase.from('paroquias').update({ senha: senhaNova }).eq('id', paroquiaId).then(({ error }) => {
       if (error) console.warn('Erro ao resetar senha da paróquia no Supabase:', error);
     });
-  }, [paroquias]);
+  }, [canUseBackend, paroquias]);
 
   const resetSenhaCEB = useCallback((cebId: string, senhaNova: string) => {
     const current = cebs.find((c) => c.id === cebId);
@@ -888,10 +941,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const updated = { ...current, senha: senhaNova, updatedAt: new Date().toISOString() };
     setCebs((prev) => upsertById(prev, updated));
 
+    if (!canUseBackend) return;
+
     void supabase.from('cebs').update({ senha: senhaNova }).eq('id', cebId).then(({ error }) => {
       if (error) console.warn('Erro ao resetar senha da CEB no Supabase:', error);
     });
-  }, [cebs]);
+  }, [canUseBackend, cebs]);
 
   return (
     <DataContext.Provider
