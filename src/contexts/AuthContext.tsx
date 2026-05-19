@@ -28,18 +28,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isFirstAccess = useCallback(async () => {
-    const { data, error } = await supabase
+    const { count, error } = await supabase
       .from('administradores')
-      .select('id, senha')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .select('id', { count: 'exact', head: true });
 
     if (error) {
       console.warn('Erro ao verificar primeiro acesso:', error);
-      return true;
+      return false;
     }
-    return !data || !data.senha;
+    return (count ?? 0) === 0;
   }, []);
 
   const loginAdmin = useCallback(async (email: string, senha: string): Promise<string | null> => {
