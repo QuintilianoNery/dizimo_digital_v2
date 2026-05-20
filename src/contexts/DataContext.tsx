@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import { supabase } from '../utils/supabase';
-import { isAuthSessionActive } from '../utils/authSession';
 import { useAuth } from './AuthContext';
 import type {
   Paroquia, CEB, ConfiguracaoParoquia, PastoralMovimento,
@@ -199,7 +198,7 @@ function removeById<T extends { id: string }>(items: T[], id: string): T[] {
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { loading: authLoading, isAuthenticated } = useAuth();
   const [administrador, setAdministrador] = useState<Administrador | null>(null);
   const [paroquias, setParoquias] = useState<Paroquia[]>([]);
   const [configuracoes, setConfiguracoes] = useState<ConfiguracaoParoquia[]>([]);
@@ -209,7 +208,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [dizimistas, setDizimistas] = useState<Dizimista[]>([]);
   const [doacoes, setDoacoes] = useState<Doacao[]>([]);
   const [alertas, setAlertas] = useState<AlertaPercentual[]>([]);
-  const canUseBackend = isAuthenticated && !authLoading && isAuthSessionActive(user);
+  const canUseBackend = isAuthenticated && !authLoading;
 
   useEffect(() => {
     if (authLoading) return;

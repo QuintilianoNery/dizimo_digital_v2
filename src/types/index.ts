@@ -126,6 +126,7 @@ export interface AlertaPercentual {
 
 export interface AuthUser {
   role: UserRole;
+  email?: string;
   paroquiaId?: string;
   cebId?: string;
   adminId?: string;

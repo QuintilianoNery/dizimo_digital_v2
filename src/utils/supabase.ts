@@ -11,7 +11,13 @@ if (!hasSupabaseConfig) {
   );
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: false,
+    detectSessionInUrl: true,
+  },
+});
 
 // Tipos de banco de dados
 export interface SupabaseAdministrador {

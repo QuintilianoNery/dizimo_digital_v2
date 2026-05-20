@@ -5,7 +5,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { Alert } from '../../components/ui/index';
 import { LogoMark } from '../../components/ui/LogoMark';
-import { storageGetOne, storageSet } from '../../utils/storage';
 import type { Paroquia, CEB } from '../../types';
 
 // ── ADMIN LOGIN ────────────────────────────────────────────────────────────
@@ -145,7 +144,6 @@ export function LoginPage() {
   const [pSearch, setPSearch] = useState('');
   const [pSelected, setPSelected] = useState<Paroquia | null>(null);
   const [pSenha, setPSenha] = useState('');
-  const [pRemember, setPRemember] = useState(false);
   const [pDropOpen, setPDropOpen] = useState(false);
 
   // CEB state
@@ -154,7 +152,6 @@ export function LoginPage() {
   const [cSearch, setCSearch] = useState('');
   const [cSelected, setCSelected] = useState<CEB | null>(null);
   const [cSenha, setCSenha] = useState('');
-  const [cRemember, setCRemember] = useState(false);
   const [cPDropOpen, setCPDropOpen] = useState(false);
   const [cDropOpen, setCDropOpen] = useState(false);
 
@@ -184,22 +181,6 @@ export function LoginPage() {
       if (user?.role === 'paroquial') navigate('/paroquial/dashboard');
       else if (user?.role === 'ceb') navigate('/cebs/dashboard');
     }
-    // Load remembered login
-    const rem = storageGetOne<{ type: string; paroquiaId?: string; cebId?: string }>('remember_login');
-    if (rem) {
-      if (rem.type === 'paroquial' && rem.paroquiaId) {
-        const p = paroquias.find((x) => x.id === rem.paroquiaId);
-        if (p) { setPSelected(p); setPSearch(p.nome); setPRemember(true); }
-      } else if (rem.type === 'ceb' && rem.paroquiaId && rem.cebId) {
-        const p = paroquias.find((x) => x.id === rem.paroquiaId);
-        if (p) {
-          setCPSelected(p); setCPSearch(p.nome);
-          const cebs = getCEBs(p.id);
-          const c = cebs.find((x) => x.id === rem.cebId);
-          if (c) { setCSelected(c); setCSearch(c.nome); setCRemember(true); setTab('ceb'); }
-        }
-      }
-    }
   }, [isAuthenticated, user, navigate, paroquias, getCEBs]);
 
   const handleParoquialLogin = async () => {
@@ -208,8 +189,6 @@ export function LoginPage() {
     if (!pSenha) { setError('Digite a senha'); return; }
     const err = await loginParoquial(pSelected.codigoParoquia, pSenha);
     if (err) { setError(err); return; }
-    if (pRemember) storageSet('remember_login', { type: 'paroquial', paroquiaId: pSelected.id });
-    else localStorage.removeItem('dizimo_digital_remember_login');
     navigate('/paroquial/dashboard');
   };
 
@@ -220,8 +199,6 @@ export function LoginPage() {
     if (!cSenha) { setError('Digite a senha'); return; }
     const err = await loginCEB(cPSelected.codigoParoquia, cSelected.codigoCeb, cSenha);
     if (err) { setError(err); return; }
-    if (cRemember) storageSet('remember_login', { type: 'ceb', paroquiaId: cPSelected.id, cebId: cSelected.id });
-    else localStorage.removeItem('dizimo_digital_remember_login');
     navigate('/cebs/dashboard');
   };
 
@@ -326,7 +303,6 @@ export function LoginPage() {
                 onSelect={(opt) => {
                   const sel = paroquias.find((p) => p.id === opt.id) ?? null;
                   setPSelected(sel);
-                  if (sel && pRemember) storageSet('remember_login', { type: 'paroquial', paroquiaId: sel.id });
                 }}
                 options={filteredPar.map((p) => ({ id: p.id, label: p.nome, sub: `Código: ${p.codigoParoquia}` }))}
                 open={pDropOpen}
@@ -342,10 +318,6 @@ export function LoginPage() {
                   </button>
                 </div>
               </div>
-              <label className="form-check" style={{ marginBottom: 20 }}>
-                <input type="checkbox" checked={pRemember} onChange={(e) => { setPRemember(e.target.checked); if (e.target.checked && pSelected) storageSet('remember_login', { type: 'paroquial', paroquiaId: pSelected.id }); }} />
-                <span>Lembrar paróquia selecionada</span>
-              </label>
               <button className="btn btn-primary btn-full btn-lg" onClick={handleParoquialLogin}>Entrar</button>
             </>
           ) : (
@@ -359,7 +331,6 @@ export function LoginPage() {
                   setCPSelected(sel);
                   setCSelected(null);
                   setCSearch('');
-                  if (sel && cRemember) storageSet('remember_login', { type: 'ceb', paroquiaId: sel.id });
                 }}
                 options={filteredCPar.map((p) => ({ id: p.id, label: p.nome, sub: `Código: ${p.codigoParoquia}` }))}
                 open={cPDropOpen}
@@ -373,7 +344,6 @@ export function LoginPage() {
                 onSelect={(opt) => {
                   const sel = cebsForParoquia.find((c) => c.id === opt.id) ?? null;
                   setCSelected(sel);
-                  if (sel && cRemember && cPSelected) storageSet('remember_login', { type: 'ceb', paroquiaId: cPSelected.id, cebId: sel.id });
                 }}
                 options={filteredCebs.map((c) => ({ id: c.id, label: c.nome, sub: `Código: ${c.codigoCeb}` }))}
                 open={cDropOpen}
@@ -389,10 +359,6 @@ export function LoginPage() {
                   </button>
                 </div>
               </div>
-              <label className="form-check" style={{ marginBottom: 20 }}>
-                <input type="checkbox" checked={cRemember} onChange={(e) => { setCRemember(e.target.checked); if (e.target.checked && cSelected && cPSelected) storageSet('remember_login', { type: 'ceb', paroquiaId: cPSelected.id, cebId: cSelected.id }); }} />
-                <span>Lembrar paróquia e CEB selecionadas</span>
-              </label>
               <button className="btn btn-primary btn-full btn-lg" onClick={handleCEBLogin}>Entrar</button>
             </>
           )}
