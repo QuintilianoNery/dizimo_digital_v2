@@ -79,6 +79,7 @@ Para cada e-mail que já existe nas tabelas, crie o usuário no Auth:
 | `admin@dizimo.com` | admin | `Admin@123` |
 | `secretaria@nsgraças.com.br` | paroquial | `Paroquia@123` |
 | `secretaria@saofelipe.com.br` | paroquial | `Paroquia@123` |
+| `teste@teste.com` | paroquial | `Paroquia@123` |
 | `saojose@ceb.com` | ceb | `Ceb@123` |
 | `santamaria@ceb.com` | ceb | `Ceb@123` |
 | `saofrancisco@ceb.com` | ceb | `Ceb@123` |

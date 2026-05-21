@@ -57,16 +57,26 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: s
 }
 
 /** Detecta o papel do usuário e retorna seu perfil completo */
-async function detectUserRole(email: string): Promise<AppUser | null> {
+async function detectUserRole(email: string, fallbackEmail?: string): Promise<AppUser | null> {
   const emailLower = email.toLowerCase();
+  const fallbackEmailLower = fallbackEmail?.toLowerCase();
+  const emailCandidates = fallbackEmailLower && fallbackEmailLower !== emailLower
+    ? [emailLower, fallbackEmailLower]
+    : [emailLower];
 
   // 1. Admin?
-  const { data: admin, error: adminError } = await supabase
+  const adminQuery = supabase
     .from('administradores')
     .select('id, nome, email')
-    .ilike('email', emailLower)
-    .eq('status', 'ativo')
-    .maybeSingle();
+    .eq('status', 'ativo');
+
+  const { data: admin, error: adminError } = emailCandidates.length > 1
+    ? await adminQuery
+      .or(`email.ilike.${emailCandidates[0]},email.ilike.${emailCandidates[1]}`)
+      .maybeSingle()
+    : await adminQuery
+      .ilike('email', emailCandidates[0])
+      .maybeSingle();
 
   throwIfQueryError(adminError, 'administradores');
 
@@ -77,12 +87,20 @@ async function detectUserRole(email: string): Promise<AppUser | null> {
   }
 
   // 2. Secretaria parroquial?
-  const { data: paroquia, error: paroquiaError } = await supabase
+  const paroquiaQuery = supabase
     .from('paroquias')
     .select('id, nome, email, email_login_secretaria')
-    .or(`email.ilike.${emailLower},email_login_secretaria.ilike.${emailLower}`)
-    .eq('status', 'ativa')
-    .maybeSingle();
+    .eq('status', 'ativa');
+
+  const { data: paroquia, error: paroquiaError } = emailCandidates.length > 1
+    ? await paroquiaQuery
+      .or(
+        `email.ilike.${emailCandidates[0]},email_login_secretaria.ilike.${emailCandidates[0]},email.ilike.${emailCandidates[1]},email_login_secretaria.ilike.${emailCandidates[1]}`
+      )
+      .maybeSingle()
+    : await paroquiaQuery
+      .or(`email.ilike.${emailCandidates[0]},email_login_secretaria.ilike.${emailCandidates[0]}`)
+      .maybeSingle();
 
   throwIfQueryError(paroquiaError, 'paroquias');
 
@@ -99,12 +117,18 @@ async function detectUserRole(email: string): Promise<AppUser | null> {
   }
 
   // 3. CEB?
-  const { data: ceb, error: cebError } = await supabase
+  const cebQuery = supabase
     .from('cebs')
     .select('id, nome, email_login, paroquia_id')
-    .ilike('email_login', emailLower)
-    .eq('status', 'ativa')
-    .maybeSingle();
+    .eq('status', 'ativa');
+
+  const { data: ceb, error: cebError } = emailCandidates.length > 1
+    ? await cebQuery
+      .or(`email_login.ilike.${emailCandidates[0]},email_login.ilike.${emailCandidates[1]}`)
+      .maybeSingle()
+    : await cebQuery
+      .ilike('email_login', emailCandidates[0])
+      .maybeSingle();
 
   throwIfQueryError(cebError, 'cebs');
 
@@ -132,7 +156,9 @@ export async function signIn(
   email: string,
   password: string
 ): Promise<{ user: AppUser; role: UserRole }> {
-  console.log('1. Iniciando signIn com:', email);
+  const typedEmail = email.toLowerCase().trim();
+
+  console.log('1. Iniciando signIn com:', typedEmail);
 
   // 1. Autentica com Supabase Auth
   let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'] | undefined;
@@ -141,7 +167,7 @@ export async function signIn(
   try {
     const authResult = await withTimeout(
       supabase.auth.signInWithPassword({
-        email: email.toLowerCase().trim(),
+        email: typedEmail,
         password,
       }),
       12000,
@@ -168,7 +194,7 @@ export async function signIn(
 
   // 2. Detecta papel
   const appUser = await withTimeout(
-    detectUserRole(data.user.email!),
+    detectUserRole(data.user.email!, typedEmail),
     12000,
     'Tempo esgotado ao carregar perfil do usuario. Verifique as politicas RLS das tabelas de perfil.'
   );
