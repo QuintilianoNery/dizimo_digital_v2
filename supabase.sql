@@ -691,3 +691,60 @@ CREATE POLICY cebs_delete_auth ON public.cebs
         )
     )
   );
+
+-- pastorais_movimentos (leitura para todos autenticados)
+CREATE POLICY pastorais_select_auth ON public.pastorais_movimentos
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY pastorais_insert_auth ON public.pastorais_movimentos
+  FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY pastorais_update_auth ON public.pastorais_movimentos
+  FOR UPDATE TO authenticated USING (true);
+CREATE POLICY pastorais_delete_auth ON public.pastorais_movimentos
+  FOR DELETE TO authenticated USING (true);
+
+-- dizimistas
+CREATE POLICY dizimistas_select_auth ON public.dizimistas
+  FOR SELECT TO authenticated
+  USING (exists (select 1 from public.cebs c where c.id = ceb_id and (
+    lower(coalesce(c.email_login,'')) = public.current_auth_email()
+    OR exists (select 1 from public.paroquias p where p.id = c.paroquia_id and (
+      lower(p.email) = public.current_auth_email()
+      OR lower(coalesce(p.email_login_secretaria,'')) = public.current_auth_email()))
+    OR exists (select 1 from public.administradores a where lower(a.email) = public.current_auth_email())
+  )));
+CREATE POLICY dizimistas_insert_auth ON public.dizimistas
+  FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY dizimistas_update_auth ON public.dizimistas
+  FOR UPDATE TO authenticated USING (true);
+CREATE POLICY dizimistas_delete_auth ON public.dizimistas
+  FOR DELETE TO authenticated USING (true);
+
+-- doacoes
+CREATE POLICY doacoes_select_auth ON public.doacoes
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY doacoes_insert_auth ON public.doacoes
+  FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY doacoes_update_auth ON public.doacoes
+  FOR UPDATE TO authenticated USING (true);
+CREATE POLICY doacoes_delete_auth ON public.doacoes
+  FOR DELETE TO authenticated USING (true);
+
+-- conselheiros_comunitarios
+CREATE POLICY conselheiros_select_auth ON public.conselheiros_comunitarios
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY conselheiros_insert_auth ON public.conselheiros_comunitarios
+  FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY conselheiros_update_auth ON public.conselheiros_comunitarios
+  FOR UPDATE TO authenticated USING (true);
+CREATE POLICY conselheiros_delete_auth ON public.conselheiros_comunitarios
+  FOR DELETE TO authenticated USING (true);
+
+-- alertas_percentuais
+CREATE POLICY alertas_select_auth ON public.alertas_percentuais
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY alertas_insert_auth ON public.alertas_percentuais
+  FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY alertas_update_auth ON public.alertas_percentuais
+  FOR UPDATE TO authenticated USING (true);
+CREATE POLICY alertas_delete_auth ON public.alertas_percentuais
+  FOR DELETE TO authenticated USING (true);
