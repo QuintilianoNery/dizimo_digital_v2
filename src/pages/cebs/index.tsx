@@ -1,384 +1,443 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// ============================================================================
+// PÁGINAS CEBs
+// ============================================================================
+
+import React, { useEffect, useState } from 'react';
+import { Plus, Pencil, Trash2, Gift, Users, UserCheck, Calendar, DollarSign } from 'lucide-react';
+import { getCebDashboardStats, type CebDashboardStats } from '@/services/ceb.service';
 import {
-  Plus, Pencil, Trash2, DollarSign, Heart, ArrowUpRight,
-  TrendingUp, Users, UserCheck, X, AlertTriangle, Cake, CalendarDays
-} from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useData } from '../../contexts/DataContext';
+  listDoacoes, createDoacao, updateDoacao, deleteDoacao,
+} from '@/services/doacao.service';
 import {
-  useToast, Alert, Modal, ConfirmDialog, PageHeader, SearchBar,
-  StatusBadge, StatCard, SectionCard, EmptyState,
-} from '../../components/ui/index';
-import { formatCurrency, calcularRepasse, filtrarDoacoes, getMesNome, filtrarAniversariantes, formatDate } from '../../utils/calculations';
-import type { Dizimista, ConselheiroComunitario, Doacao } from '../../types';
+  listDizimistas, createDizimista, updateDizimista, deleteDizimista,
+  getAniversariantesMes,
+} from '@/services/dizimista.service';
+import {
+  listConselheiros, createConselheiro, updateConselheiro, deleteConselheiro,
+  listPastorais,
+} from '@/services/conselheiro.service';
+import type {
+  Doacao, Dizimista, ConselheiroComunitario, PastoralMovimento,
+  TipoDoacao, FormaPagamento,
+} from '@/types';
+import {
+  Button, Modal, Input, Badge, ConfirmDialog, EmptyState, Spinner,
+  Card, useToast, Select, Textarea,
+} from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const TIPOS_DOACAO: { value: TipoDoacao; label: string }[] = [
+  { value: 'dizimo', label: 'Dízimo' },
+  { value: 'oferta', label: 'Oferta' },
+  { value: 'doacao', label: 'Doação' },
+];
+const FORMAS: { value: FormaPagamento; label: string }[] = [
+  { value: 'dinheiro', label: 'Dinheiro' },
+  { value: 'pix', label: 'Pix' },
+  { value: 'transferencia', label: 'Transferência' },
+];
 
-// ── CEB DASHBOARD ──────────────────────────────────────────────────────────
-export function DashboardCEB() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { getDoacoes, getConfiguracaoVigente, getAlertas, marcarAlertaLido, getCEB, getParoquia, getDizimistas } = useData();
-  const { showToast } = useToast();
-  const cebId = user!.cebId!;
-  const paroquiaId = user!.paroquiaId!;
-  const ceb = getCEB(cebId);
-  const paroquia = getParoquia(paroquiaId);
-  const config = getConfiguracaoVigente(paroquiaId);
-  const alertas = getAlertas(cebId);
-  const allDoacoes = getDoacoes(cebId);
-  const dizimistasAtivos = getDizimistas(cebId).filter((d) => d.status === 'ativo');
-  const birthdayToastShown = useRef(false);
+function formatCurrency(v: number) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+}
 
-  const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
-  const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1);
-  const [filtroTipo, setFiltroTipo] = useState<'mensal' | 'trimestral' | 'semestral' | 'anual'>('mensal');
+function formatData(iso: string) {
+  const d = new Date(iso + 'T00:00:00');
+  return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
 
-  const aniversariantesMes = useMemo(
-    () => filtrarAniversariantes(dizimistasAtivos, { tipo: 'mes', mes: new Date().getMonth() + 1 }),
-    [dizimistasAtivos],
+// ── StatCard ──────────────────────────────────────────────────────────────────
+
+function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color: string }) {
+  return (
+    <Card style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div style={{ width: 44, height: 44, borderRadius: 10, background: `${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <span style={{ color }}>{icon}</span>
+      </div>
+      <div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)' }}>{value}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{label}</div>
+      </div>
+    </Card>
   );
+}
 
-  const nomesAniversariantes = useMemo(() => {
-    const nomes = aniversariantesMes.slice(0, 3).map((d) => d.nome.split(' ')[0]);
-    const extras = aniversariantesMes.length > 3 ? ` e mais ${aniversariantesMes.length - 3}` : '';
-    return `${nomes.join(', ')}${extras}`;
-  }, [aniversariantesMes]);
+// ── Dashboard CEB ─────────────────────────────────────────────────────────────
+
+export function DashboardCEB() {
+  const { user } = useAuth();
+  const [stats, setStats] = useState<CebDashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (birthdayToastShown.current || aniversariantesMes.length === 0) return;
-
-    showToast(nomesAniversariantes, 'success', { title: 'Aniversariantes do mês:', durationMs: 4000, icon: <Cake size={16} /> });
-    birthdayToastShown.current = true;
-  }, [aniversariantesMes.length, nomesAniversariantes, showToast]);
-
-  const doacoes = useMemo(
-    () => filtrarDoacoes(allDoacoes, { ano: filtroAno, mes: filtroMes, tipo: filtroTipo }),
-    [allDoacoes, filtroAno, filtroMes, filtroTipo],
-  );
-
-  const stats = calcularRepasse(doacoes, config);
-  const porMes = useMemo(() => {
-    const byMonth: Record<string, number> = {};
-    allDoacoes.filter((d) => d.competenciaAno === filtroAno).forEach((d) => {
-      const k = String(d.competenciaMes);
-      byMonth[k] = (byMonth[k] ?? 0) + d.valor;
-    });
-    return byMonth;
-  }, [allDoacoes, filtroAno]);
-
-  const maxVal = Math.max(...Object.values(porMes), 1);
+    if (!user?.cebId) return;
+    getCebDashboardStats(user.cebId)
+      .then(setStats)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [user?.cebId]);
 
   return (
     <div>
-      {aniversariantesMes.length > 0 && (
-        <Alert
-          variant="success"
-          message={`Há ${aniversariantesMes.length} aniversariante(s) neste mês na sua CEB.`}
-          icon={<Cake size={16} />}
-          action={<button className="btn btn-ghost btn-sm" onClick={() => navigate('/cebs/aniversariantes')}>Ver aniversariantes</button>}
-        />
-      )}
-
-      {/* Alertas */}
-      {alertas.map((alerta) => (
-        <Alert
-          key={alerta.id}
-          variant="warning"
-          title="Alteração de percentual"
-          message={`${alerta.mensagem} (${new Date(alerta.createdAt).toLocaleDateString('pt-BR')})`}
-          icon={<AlertTriangle size={16} />}
-          onClose={() => marcarAlertaLido(alerta.id)}
-        />
-      ))}
-
-      <PageHeader title={ceb?.nome ?? 'Dashboard'} subtitle={`Paróquia: ${paroquia?.nome ?? ''}`} />
-
-      {config && (
-        <Alert
-          variant="info"
-          title="Percentuais vigentes"
-          message={`Dízimo ${config.percentualDizimoCebs}% · Oferta ${config.percentualOfertaCebs}%`}
-        />
-      )}
-
-      <div className="filter-bar">
-        <select className="form-select" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value as any)}>
-          <option value="mensal">Mensal</option>
-          <option value="trimestral">Trimestral</option>
-          <option value="semestral">Semestral</option>
-          <option value="anual">Anual</option>
-        </select>
-        {filtroTipo !== 'anual' && (
-          <select className="form-select" value={filtroMes} onChange={(e) => setFiltroMes(Number(e.target.value))}>
-            {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-          </select>
-        )}
-        <select className="form-select" value={filtroAno} onChange={(e) => setFiltroAno(Number(e.target.value))}>
-          {[2024, 2025, 2026].map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
-      </div>
-
-      <div className="grid-stats">
-        <StatCard label="Total dízimo" value={formatCurrency(stats.totalDizimo)} icon={<DollarSign size={20} />} color="var(--primary)" />
-        <StatCard label="Total oferta" value={formatCurrency(stats.totalOferta)} icon={<Heart size={20} />} color="var(--accent)" />
-        <StatCard label="Total doações" value={formatCurrency(stats.totalDoacao)} icon={<ArrowUpRight size={20} />} color="var(--info)" />
-        <StatCard label="Total arrecadado" value={formatCurrency(stats.totalArrecadado)} icon={<TrendingUp size={20} />} color="var(--success)" />
-        <StatCard label="Repasse dízimo" value={formatCurrency(stats.repasseDizimo)} sub={`${config?.percentualDizimoCebs ?? 0}%`} icon={<ArrowUpRight size={20} />} color="var(--warning)" />
-        <StatCard label="Repasse oferta" value={formatCurrency(stats.repasseOferta)} sub={`${config?.percentualOfertaCebs ?? 0}%`} icon={<ArrowUpRight size={20} />} color="var(--warning)" />
-        <StatCard label="Total repasse" value={formatCurrency(stats.totalRepasse)} icon={<TrendingUp size={20} />} color="var(--danger)" />
-      </div>
-
-      <SectionCard title={`Arrecadação mensal — ${filtroAno}`} subtitle="Total por mês">
-        {Object.keys(porMes).length === 0 ? (
-          <p style={{ color: 'var(--text-3)', fontSize: 13 }}>Nenhum dado neste ano</p>
-        ) : MESES.map((m, i) => {
-          const val = porMes[String(i + 1)] ?? 0;
-          return (
-            <div key={i} className="chart-bar-row">
-              <span className="chart-bar-label">{m}</span>
-              <div className="chart-bar-track">
-                <div className="chart-bar-fill" style={{ width: `${(val / maxVal) * 100}%` }} />
-              </div>
-              <span className="chart-bar-value">{val > 0 ? formatCurrency(val) : '—'}</span>
-            </div>
-          );
-        })}
-      </SectionCard>
+      <h1 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>Dashboard</h1>
+      <p style={{ margin: '0 0 24px', color: 'var(--text-3)', fontSize: 13 }}>{user?.nome}</p>
+      {loading ? <Spinner size={28} /> : stats ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+          <StatCard icon={<Users size={20} />} label="Dizimistas Ativos" value={stats.totalDizimistas} color="var(--blue)" />
+          <StatCard icon={<Gift size={20} />} label="Lançamentos do Mês" value={stats.totalDoacoesMes} color="var(--brand)" />
+          <StatCard icon={<DollarSign size={20} />} label="Arrecadado no Mês" value={formatCurrency(stats.valorTotalMes)} color="var(--green)" />
+          <StatCard icon={<UserCheck size={20} />} label="Conselheiros Ativos" value={stats.totalConselheiros} color="var(--amber)" />
+        </div>
+      ) : null}
     </div>
   );
 }
 
-// ── DOAÇÕES PAGE ───────────────────────────────────────────────────────────
+// ── Doacoes Page ──────────────────────────────────────────────────────────────
+
+type DoacaoForm = {
+  dizimista_id: string;
+  valor: string;
+  competencia_mes: number;
+  competencia_ano: number;
+  tipo_doacao: TipoDoacao;
+  forma_pagamento: FormaPagamento;
+  observacoes: string;
+};
+
+const EMPTY_DOACAO: DoacaoForm = {
+  dizimista_id: '',
+  valor: '',
+  competencia_mes: new Date().getMonth() + 1,
+  competencia_ano: new Date().getFullYear(),
+  tipo_doacao: 'dizimo',
+  forma_pagamento: 'dinheiro',
+  observacoes: '',
+};
+
 export function DoacoesPage() {
   const { user } = useAuth();
-  const { getDoacoes, saveDoacao, deleteDoacao, getDizimistas } = useData();
-  const { showToast } = useToast();
-  const cebId = user!.cebId!;
-  const dizimistas = getDizimistas(cebId);
-
-  const [search, setSearch] = useState('');
-  const [filtroTipo, setFiltroTipo] = useState('');
+  const toast = useToast();
+  const now = new Date();
+  const [mes, setMes] = useState(now.getMonth() + 1);
+  const [ano, setAno] = useState(now.getFullYear());
+  const [doacoes, setDoacoes] = useState<Doacao[]>([]);
+  const [dizimistas, setDizimistas] = useState<Dizimista[]>([]);
+  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [selected, setSelected] = useState<Doacao | null>(null);
-  const today = new Date();
-  const [form, setForm] = useState<Partial<Doacao>>({
-    tipoDoacao: 'dizimo', formaPagamento: 'dinheiro',
-    competenciaMes: today.getMonth() + 1, competenciaAno: today.getFullYear(),
-    dataLancamento: today.toISOString().split('T')[0],
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [editTarget, setEditTarget] = useState<Doacao | null>(null);
+  const [form, setForm] = useState<DoacaoForm>(EMPTY_DOACAO);
+  const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Doacao | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const doacoes = getDoacoes(cebId)
-    .filter((d) => !filtroTipo || d.tipoDoacao === filtroTipo)
-    .sort((a, b) => b.dataLancamento.localeCompare(a.dataLancamento));
-
-  const openNew = () => {
-    const now = new Date();
-    setForm({ tipoDoacao: 'dizimo', formaPagamento: 'dinheiro', competenciaMes: now.getMonth() + 1, competenciaAno: now.getFullYear(), dataLancamento: now.toISOString().split('T')[0] });
-    setErrors({}); setSelected(null); setModalOpen(true);
-  };
-  const openEdit = (d: Doacao) => { setForm({ ...d }); setErrors({}); setSelected(d); setModalOpen(true); };
-
-  const validate = () => {
-    const e: Record<string, string> = {};
-    if (!form.valor || form.valor <= 0) e.valor = 'Valor obrigatório e positivo';
-    setErrors(e);
-    return Object.keys(e).length === 0;
+  const load = async () => {
+    if (!user?.cebId) return;
+    setLoading(true);
+    try {
+      const [d, diz] = await Promise.all([
+        listDoacoes({ cebId: user.cebId, mes, ano }),
+        listDizimistas(user.cebId),
+      ]);
+      setDoacoes(d);
+      setDizimistas(diz);
+    } catch (e: unknown) {
+      toast.error('Erro ao carregar', e instanceof Error ? e.message : '');
+    } finally { setLoading(false); }
   };
 
-  const handleSave = () => {
-    if (!validate()) return;
-    saveDoacao({ ...form, cebId } as Doacao);
-    setModalOpen(false);
-    showToast(selected ? 'Doação atualizada!' : 'Doação registrada!');
+  useEffect(() => { load(); }, [mes, ano, user?.cebId]);
+
+  const openCreate = () => {
+    setEditTarget(null);
+    setForm({ ...EMPTY_DOACAO, competencia_mes: mes, competencia_ano: ano });
+    setModalOpen(true);
   };
 
-  const f = (k: keyof Doacao, v: any) => setForm((p) => ({ ...p, [k]: v }));
+  const openEdit = (d: Doacao) => {
+    setEditTarget(d);
+    setForm({
+      dizimista_id: d.dizimista_id ?? '',
+      valor: String(d.valor),
+      competencia_mes: d.competencia_mes,
+      competencia_ano: d.competencia_ano,
+      tipo_doacao: d.tipo_doacao,
+      forma_pagamento: d.forma_pagamento,
+      observacoes: d.observacoes ?? '',
+    });
+    setModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.valor || isNaN(parseFloat(form.valor))) { toast.warning('Informe um valor válido'); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        ceb_id: user!.cebId!,
+        dizimista_id: form.dizimista_id || null,
+        valor: parseFloat(form.valor),
+        competencia_mes: form.competencia_mes,
+        competencia_ano: form.competencia_ano,
+        tipo_doacao: form.tipo_doacao,
+        forma_pagamento: form.forma_pagamento,
+        observacoes: form.observacoes || null,
+        data_lancamento: new Date().toISOString(),
+      };
+      if (editTarget) await updateDoacao(editTarget.id, payload);
+      else await createDoacao(payload);
+      toast.success(editTarget ? 'Lançamento atualizado!' : 'Lançamento registrado!');
+      setModalOpen(false);
+      await load();
+    } catch (e: unknown) {
+      toast.error('Erro ao salvar', e instanceof Error ? e.message : '');
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteDoacao(deleteTarget.id);
+      toast.success('Lançamento removido');
+      setDeleteTarget(null);
+      await load();
+    } catch (e: unknown) {
+      toast.error('Erro', e instanceof Error ? e.message : '');
+    } finally { setDeleting(false); }
+  };
+
+  const total = doacoes.reduce((a, d) => a + Number(d.valor), 0);
+
+  const tipoBadge = (t: TipoDoacao) =>
+    t === 'dizimo' ? 'blue' : t === 'oferta' ? 'green' : 'amber';
 
   return (
     <div>
-      <PageHeader title="Doações" subtitle="Registre dízimos, ofertas e doações"
-        action={<button className="btn btn-primary" onClick={openNew}><Plus size={16} />Nova doação</button>}
-      />
-      <div className="filter-bar">
-        <select className="form-select" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
-          <option value="">Todos os tipos</option>
-          <option value="dizimo">Dízimo</option>
-          <option value="oferta">Oferta</option>
-          <option value="doacao">Doação</option>
-        </select>
-        <SearchBar value={search} onChange={setSearch} placeholder="Buscar..." />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>Doações e Dízimos</h1>
+          {!loading && <p style={{ margin: '4px 0 0', color: 'var(--text-3)', fontSize: 13 }}>
+            {doacoes.length} lançamento(s) · {formatCurrency(total)} no período
+          </p>}
+        </div>
+        <Button icon={<Plus size={14} />} onClick={openCreate}>Novo Lançamento</Button>
       </div>
-      <SectionCard>
-        <div className="table-wrap">
-          <table>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <Select label="" value={String(mes)} onChange={(e) => setMes(Number(e.target.value))}
+          options={MESES.map((m, i) => ({ value: String(i + 1), label: MESES_FULL[i] }))} />
+        <Select label="" value={String(ano)} onChange={(e) => setAno(Number(e.target.value))}
+          options={[2023, 2024, 2025, 2026].map((y) => ({ value: String(y), label: String(y) }))} />
+      </div>
+
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spinner size={28} /></div>
+      ) : doacoes.length === 0 ? (
+        <EmptyState icon={<Gift size={40} />} title="Nenhum lançamento no período" description="Clique em 'Novo Lançamento' para registrar." />
+      ) : (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr><th>Data</th><th>Tipo</th><th>Forma</th><th>Competência</th><th>Dizimista</th><th style={{ textAlign: 'right' }}>Valor</th><th style={{ textAlign: 'right' }}>Ações</th></tr>
+              <tr style={{ background: 'var(--surface-2)' }}>
+                {['Dizimista', 'Tipo', 'Forma', 'Competência', 'Valor', ''].map((h) => (
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase' }}>{h}</th>
+                ))}
+              </tr>
             </thead>
             <tbody>
-              {doacoes.length === 0 ? (
-                <tr><td colSpan={7}><EmptyState title="Nenhuma doação registrada" icon={<Heart size={36} />} action={<button className="btn btn-primary btn-sm" onClick={openNew}><Plus size={14} />Registrar doação</button>} /></td></tr>
-              ) : doacoes.map((d) => {
-                const diz = dizimistas.find((x) => x.id === d.dizimistaId);
-                return (
-                  <tr key={d.id}>
-                    <td>{d.dataLancamento}</td>
-                    <td><span className={`badge ${d.tipoDoacao === 'dizimo' ? 'badge-info' : d.tipoDoacao === 'oferta' ? 'badge-warning' : 'badge-neutral'}`}>{d.tipoDoacao}</span></td>
-                    <td>{d.formaPagamento}</td>
-                    <td>{getMesNome(d.competenciaMes).slice(0,3)}/{d.competenciaAno}</td>
-                    <td style={{ color: 'var(--text-3)' }}>{diz?.nome ?? 'Avulso'}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(d.valor)}</td>
-                    <td>
-                      <div className="table-actions">
-                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(d)}><Pencil size={14} /></button>
-                        <button className="btn btn-danger btn-sm" onClick={() => { setSelected(d); setDeleteOpen(true); }}><Trash2 size={14} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {doacoes.map((d) => (
+                <tr key={d.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ padding: '12px 14px', color: 'var(--text-2)' }}>
+                    {(d.dizimistas as Dizimista | undefined)?.nome ?? <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>Anônimo</span>}
+                  </td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <Badge color={tipoBadge(d.tipo_doacao)}>{TIPOS_DOACAO.find((t) => t.value === d.tipo_doacao)?.label}</Badge>
+                  </td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text-2)' }}>
+                    {FORMAS.find((f) => f.value === d.forma_pagamento)?.label}
+                  </td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text-3)' }}>
+                    {MESES[d.competencia_mes - 1]}/{d.competencia_ano}
+                  </td>
+                  <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--green)' }}>
+                    {formatCurrency(Number(d.valor))}
+                  </td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <Button variant="ghost" size="sm" icon={<Pencil size={12} />} onClick={() => openEdit(d)} />
+                      <Button variant="ghost" size="sm" icon={<Trash2 size={12} />} onClick={() => setDeleteTarget(d)} style={{ color: 'var(--red)' }} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
+            <tfoot>
+              <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--surface-2)' }}>
+                <td colSpan={4} style={{ padding: '12px 14px', fontWeight: 700, fontSize: 13 }}>Total do período</td>
+                <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--green)' }}>{formatCurrency(total)}</td>
+                <td />
+              </tr>
+            </tfoot>
           </table>
         </div>
-      </SectionCard>
+      )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={selected ? 'Editar doação' : 'Registrar doação'}
-        footer={<><button className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancelar</button><button className="btn btn-primary" onClick={handleSave}>Salvar</button></>}
-      >
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Tipo *</label>
-            <select className="form-select" value={form.tipoDoacao} onChange={(e) => f('tipoDoacao', e.target.value)}>
-              <option value="dizimo">Dízimo</option>
-              <option value="oferta">Oferta</option>
-              <option value="doacao">Doação</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Valor (R$) *</label>
-            <input className="form-input" type="number" min="0" step="0.01" value={form.valor ?? ''} onChange={(e) => f('valor', parseFloat(e.target.value))} />
-            {errors.valor && <span className="form-error">{errors.valor}</span>}
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Forma de pagamento</label>
-            <select className="form-select" value={form.formaPagamento} onChange={(e) => f('formaPagamento', e.target.value)}>
-              <option value="dinheiro">Dinheiro</option>
-              <option value="pix">Pix</option>
-              <option value="transferencia">Transferência bancária</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Data de lançamento</label>
-            <input className="form-input" type="date" value={form.dataLancamento ?? ''} onChange={(e) => f('dataLancamento', e.target.value)} />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Mês de competência</label>
-            <select className="form-select" value={form.competenciaMes} onChange={(e) => f('competenciaMes', Number(e.target.value))}>
-              {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Ano de competência</label>
-            <select className="form-select" value={form.competenciaAno} onChange={(e) => f('competenciaAno', Number(e.target.value))}>
-              {[2024, 2025, 2026].map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Dizimista (opcional)</label>
-          <select className="form-select" value={form.dizimistaId ?? ''} onChange={(e) => f('dizimistaId', e.target.value || undefined)}>
-            <option value="">Avulso (sem vínculo)</option>
-            {dizimistas.filter((d) => d.status === 'ativo').map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
-          </select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Observações</label>
-          <textarea className="form-textarea" value={form.observacoes ?? ''} onChange={(e) => f('observacoes', e.target.value)} rows={2} />
+      {/* Modal */}
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editTarget ? 'Editar Lançamento' : 'Novo Lançamento'} width={520}
+        footer={<><Button variant="secondary" size="sm" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button><Button size="sm" onClick={handleSave} loading={saving}>Salvar</Button></>}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Select label="Dizimista (opcional)" value={form.dizimista_id}
+            onChange={(e) => setForm({ ...form, dizimista_id: e.target.value })}
+            options={[{ value: '', label: 'Anônimo' }, ...dizimistas.map((d) => ({ value: d.id, label: d.nome }))]}
+            style={{ gridColumn: '1/-1' }} />
+          <Input label="Valor (R$) *" type="number" min="0" step="0.01" value={form.valor}
+            onChange={(e) => setForm({ ...form, valor: e.target.value })} />
+          <Select label="Tipo *" value={form.tipo_doacao}
+            onChange={(e) => setForm({ ...form, tipo_doacao: e.target.value as TipoDoacao })}
+            options={TIPOS_DOACAO} />
+          <Select label="Forma de Pagamento *" value={form.forma_pagamento}
+            onChange={(e) => setForm({ ...form, forma_pagamento: e.target.value as FormaPagamento })}
+            options={FORMAS} />
+          <Select label="Mês Competência" value={String(form.competencia_mes)}
+            onChange={(e) => setForm({ ...form, competencia_mes: Number(e.target.value) })}
+            options={MESES_FULL.map((m, i) => ({ value: String(i + 1), label: m }))} />
+          <Select label="Ano Competência" value={String(form.competencia_ano)}
+            onChange={(e) => setForm({ ...form, competencia_ano: Number(e.target.value) })}
+            options={[2023, 2024, 2025, 2026].map((y) => ({ value: String(y), label: String(y) }))} />
+          <Textarea label="Observações" value={form.observacoes}
+            onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
+            style={{ gridColumn: '1/-1' }} />
         </div>
       </Modal>
 
-      <ConfirmDialog open={deleteOpen} title="Excluir doação" message="Excluir este registro de doação?" confirmLabel="Excluir" danger
-        onConfirm={() => { deleteDoacao(selected!.id); setDeleteOpen(false); showToast('Doação excluída'); }}
-        onCancel={() => setDeleteOpen(false)}
-      />
+      <ConfirmDialog open={!!deleteTarget} title="Remover Lançamento"
+        message="Confirma a remoção deste lançamento? Esta ação não pode ser desfeita."
+        onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} loading={deleting} />
     </div>
   );
 }
 
-// ── DIZIMISTAS PAGE ────────────────────────────────────────────────────────
+// ── Dizimistas Page ───────────────────────────────────────────────────────────
+
+type DizForm = { nome: string; telefone: string; email: string; endereco: string; data_nascimento: string };
+const EMPTY_DIZ: DizForm = { nome: '', telefone: '', email: '', endereco: '', data_nascimento: '' };
+
 export function DizimistasPage() {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const { getDizimistas, saveDizimista, deleteDizimista } = useData();
-  const { showToast } = useToast();
-  const cebId = user!.cebId!;
+  const toast = useToast();
+  const [dizimistas, setDizimistas] = useState<Dizimista[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [selected, setSelected] = useState<Dizimista | null>(null);
-  const [form, setForm] = useState<Partial<Dizimista>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [editTarget, setEditTarget] = useState<Dizimista | null>(null);
+  const [form, setForm] = useState<DizForm>(EMPTY_DIZ);
+  const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Dizimista | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const dizimistas = getDizimistas(cebId).filter(
-    (d) => d.nome.toLowerCase().includes(search.toLowerCase()) || d.telefone.includes(search),
+  const load = async () => {
+    if (!user?.cebId) return;
+    setLoading(true);
+    try { setDizimistas(await listDizimistas(user.cebId)); }
+    catch (e: unknown) { toast.error('Erro', e instanceof Error ? e.message : ''); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, [user?.cebId]);
+
+  const filtered = dizimistas.filter((d) =>
+    d.nome.toLowerCase().includes(search.toLowerCase()) ||
+    (d.email ?? '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const openNew = () => { setForm({ status: 'ativo' }); setErrors({}); setSelected(null); setModalOpen(true); };
-  const openEdit = (d: Dizimista) => { setForm({ ...d }); setErrors({}); setSelected(d); setModalOpen(true); };
-
-  const validate = () => {
-    const e: Record<string, string> = {};
-    if (!form.nome?.trim()) e.nome = 'Nome obrigatório';
-    if (!form.telefone?.trim()) e.telefone = 'Telefone obrigatório';
-    setErrors(e);
-    return Object.keys(e).length === 0;
+  const handleSave = async () => {
+    if (!form.nome) { toast.warning('Informe o nome'); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        ceb_id: user!.cebId!,
+        nome: form.nome,
+        telefone: form.telefone || null,
+        email: form.email || null,
+        endereco: form.endereco || null,
+        data_nascimento: form.data_nascimento || null,
+        status: 'ativo' as const,
+      };
+      if (editTarget) await updateDizimista(editTarget.id, payload);
+      else await createDizimista(payload);
+      toast.success(editTarget ? 'Dizimista atualizado!' : 'Dizimista cadastrado!');
+      setModalOpen(false);
+      await load();
+    } catch (e: unknown) {
+      toast.error('Erro', e instanceof Error ? e.message : '');
+    } finally { setSaving(false); }
   };
 
-  const handleSave = () => {
-    if (!validate()) return;
-    saveDizimista({ ...form, cebId } as Dizimista);
-    setModalOpen(false);
-    showToast(selected ? 'Dizimista atualizado!' : 'Dizimista cadastrado!');
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteDizimista(deleteTarget.id);
+      toast.success('Dizimista removido');
+      setDeleteTarget(null);
+      await load();
+    } catch (e: unknown) {
+      toast.error('Erro', e instanceof Error ? e.message : '');
+    } finally { setDeleting(false); }
   };
-
-  const f = (k: keyof Dizimista, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
   return (
     <div>
-      <PageHeader title="Dizimistas" subtitle="Cadastro de dizimistas da comunidade"
-        action={(
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-ghost" onClick={() => navigate('/cebs/aniversariantes')}><Cake size={16} />Ver aniversariantes</button>
-            <button className="btn btn-primary" onClick={openNew}><Plus size={16} />Novo dizimista</button>
-          </div>
-        )}
-      />
-      <SectionCard>
-        <div style={{ marginBottom: 16 }}><SearchBar value={search} onChange={setSearch} placeholder="Buscar por nome ou telefone..." /></div>
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>Nome</th><th>Telefone</th><th>Email</th><th>Nascimento</th><th>Status</th><th style={{ textAlign: 'right' }}>Ações</th></tr></thead>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>
+          Dizimistas <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 400 }}>({dizimistas.length})</span>
+        </h1>
+        <Button icon={<Plus size={14} />} onClick={() => { setEditTarget(null); setForm(EMPTY_DIZ); setModalOpen(true); }}>
+          Novo Dizimista
+        </Button>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <Input placeholder="Buscar por nome ou e-mail..." value={search}
+          onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 360 }} />
+      </div>
+
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spinner size={28} /></div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={<Users size={40} />} title={search ? 'Nenhum resultado encontrado' : 'Nenhum dizimista cadastrado'} />
+      ) : (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'var(--surface-2)' }}>
+                {['Nome', 'Telefone', 'E-mail', 'Nascimento', 'Status', ''].map((h) => (
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
-              {dizimistas.length === 0 ? (
-                <tr><td colSpan={6}><EmptyState title="Nenhum dizimista cadastrado" icon={<Users size={36} />} action={<button className="btn btn-primary btn-sm" onClick={openNew}><Plus size={14} />Cadastrar</button>} /></td></tr>
-              ) : dizimistas.map((d) => (
-                <tr key={d.id}>
-                  <td style={{ fontWeight: 500 }}>{d.nome}</td>
-                  <td>{d.telefone}</td>
-                  <td style={{ color: 'var(--text-3)' }}>{d.email ?? '—'}</td>
-                  <td>{d.dataNascimento ? new Date(d.dataNascimento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                  <td><StatusBadge status={d.status} /></td>
-                  <td>
-                    <div className="table-actions">
-                      <button className="btn btn-ghost btn-sm" onClick={() => openEdit(d)}><Pencil size={14} /></button>
-                      <button className="btn btn-danger btn-sm" onClick={() => { setSelected(d); setDeleteOpen(true); }}><Trash2 size={14} /></button>
+              {filtered.map((d) => (
+                <tr key={d.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ padding: '12px 14px', fontWeight: 500, color: 'var(--text-1)' }}>{d.nome}</td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text-2)' }}>{d.telefone ?? '—'}</td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text-2)' }}>{d.email ?? '—'}</td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text-3)' }}>
+                    {d.data_nascimento ? formatData(d.data_nascimento) : '—'}
+                  </td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <Badge color={d.status === 'ativo' ? 'green' : 'red'}>{d.status}</Badge>
+                  </td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <Button variant="ghost" size="sm" icon={<Pencil size={12} />}
+                        onClick={() => { setEditTarget(d); setForm({ nome: d.nome, telefone: d.telefone ?? '', email: d.email ?? '', endereco: d.endereco ?? '', data_nascimento: d.data_nascimento ?? '' }); setModalOpen(true); }} />
+                      <Button variant="ghost" size="sm" icon={<Trash2 size={12} />} onClick={() => setDeleteTarget(d)} style={{ color: 'var(--red)' }} />
                     </div>
                   </td>
                 </tr>
@@ -386,262 +445,212 @@ export function DizimistasPage() {
             </tbody>
           </table>
         </div>
-      </SectionCard>
+      )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={selected ? 'Editar dizimista' : 'Novo dizimista'}
-        footer={<><button className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancelar</button><button className="btn btn-primary" onClick={handleSave}>Salvar</button></>}
-      >
-        <div className="form-group">
-          <label className="form-label">Nome *</label>
-          <input className="form-input" value={form.nome ?? ''} onChange={(e) => f('nome', e.target.value)} />
-          {errors.nome && <span className="form-error">{errors.nome}</span>}
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Telefone *</label>
-            <input className="form-input" value={form.telefone ?? ''} onChange={(e) => f('telefone', e.target.value)} placeholder="(00) 00000-0000" />
-            {errors.telefone && <span className="form-error">{errors.telefone}</span>}
-          </div>
-          <div className="form-group">
-            <label className="form-label">Email (opcional)</label>
-            <input className="form-input" type="email" value={form.email ?? ''} onChange={(e) => f('email', e.target.value)} />
-          </div>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Endereço</label>
-          <input className="form-input" value={form.endereco ?? ''} onChange={(e) => f('endereco', e.target.value)} />
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Data de nascimento</label>
-            <input className="form-input" type="date" value={form.dataNascimento ?? ''} onChange={(e) => f('dataNascimento', e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Status</label>
-            <select className="form-select" value={form.status ?? 'ativo'} onChange={(e) => f('status', e.target.value)}>
-              <option value="ativo">Ativo</option>
-              <option value="inativo">Inativo</option>
-            </select>
-          </div>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editTarget ? 'Editar Dizimista' : 'Novo Dizimista'} width={480}
+        footer={<><Button variant="secondary" size="sm" onClick={() => setModalOpen(false)}>Cancelar</Button><Button size="sm" onClick={handleSave} loading={saving}>Salvar</Button></>}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Input label="Nome *" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} style={{ gridColumn: '1/-1' }} />
+          <Input label="Telefone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
+          <Input label="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Input label="Data de Nascimento" type="date" value={form.data_nascimento} onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })} />
+          <Input label="Endereço" value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} style={{ gridColumn: '1/-1' }} />
         </div>
       </Modal>
 
-      <ConfirmDialog open={deleteOpen} title="Excluir dizimista" message={`Excluir "${selected?.nome}"?`} confirmLabel="Excluir" danger
-        onConfirm={() => { deleteDizimista(selected!.id); setDeleteOpen(false); showToast('Excluído!'); }}
-        onCancel={() => setDeleteOpen(false)}
-      />
+      <ConfirmDialog open={!!deleteTarget} title="Remover Dizimista"
+        message={`Remover "${deleteTarget?.nome}"? Os lançamentos vinculados serão mantidos como anônimos.`}
+        onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} loading={deleting} />
     </div>
   );
 }
 
-// ── ANIVERSARIANTES CEB PAGE ──────────────────────────────────────────────
-export function AniversariantesCEBPage() {
+// ── Conselheiros Page ─────────────────────────────────────────────────────────
+
+type ConselForm = { nome: string; telefone: string; email: string; cargo: string; pastoral_movimento_id: string };
+const EMPTY_CON: ConselForm = { nome: '', telefone: '', email: '', cargo: '', pastoral_movimento_id: '' };
+
+export function ConselheirosPage() {
   const { user } = useAuth();
-  const { getDizimistas, getCEB } = useData();
-  const cebId = user!.cebId!;
-  const ceb = getCEB(cebId);
-  const baseDizimistas = getDizimistas(cebId).filter((d) => d.status === 'ativo');
-  const hoje = new Date();
+  const toast = useToast();
+  const [conselheiros, setConselheiros] = useState<ConselheiroComunitario[]>([]);
+  const [pastorais, setPastorais] = useState<PastoralMovimento[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<ConselheiroComunitario | null>(null);
+  const [form, setForm] = useState<ConselForm>(EMPTY_CON);
+  const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ConselheiroComunitario | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const [modoFiltro, setModoFiltro] = useState<'mes' | 'periodo'>('mes');
-  const [mesFiltro, setMesFiltro] = useState(hoje.getMonth() + 1);
-  const [inicioFiltro, setInicioFiltro] = useState(`${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`);
-  const [fimFiltro, setFimFiltro] = useState(hoje.toISOString().split('T')[0]);
-  const [search, setSearch] = useState('');
+  const load = async () => {
+    if (!user?.cebId) return;
+    setLoading(true);
+    try {
+      const [c, p] = await Promise.all([listConselheiros(user.cebId), listPastorais()]);
+      setConselheiros(c);
+      setPastorais(p);
+    } catch (e: unknown) {
+      toast.error('Erro', e instanceof Error ? e.message : '');
+    } finally { setLoading(false); }
+  };
 
-  const base = useMemo(() => baseDizimistas, [baseDizimistas]);
+  useEffect(() => { load(); }, [user?.cebId]);
 
-  const aniversariantes = useMemo(() => {
-    const filtrados = filtrarAniversariantes(base, modoFiltro === 'mes'
-      ? { tipo: 'mes', mes: mesFiltro }
-      : { tipo: 'periodo', inicio: inicioFiltro, fim: fimFiltro });
+  const handleSave = async () => {
+    if (!form.nome) { toast.warning('Informe o nome'); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        ceb_id: user!.cebId!,
+        nome: form.nome,
+        telefone: form.telefone || null,
+        email: form.email || null,
+        cargo: form.cargo || null,
+        pastoral_movimento_id: form.pastoral_movimento_id || null,
+        status: 'ativo' as const,
+      };
+      if (editTarget) await updateConselheiro(editTarget.id, payload);
+      else await createConselheiro(payload);
+      toast.success(editTarget ? 'Atualizado!' : 'Conselheiro cadastrado!');
+      setModalOpen(false);
+      await load();
+    } catch (e: unknown) {
+      toast.error('Erro', e instanceof Error ? e.message : '');
+    } finally { setSaving(false); }
+  };
 
-    const termo = search.toLowerCase();
-    return filtrados.filter((d) => d.nome.toLowerCase().includes(termo) || d.telefone.toLowerCase().includes(termo));
-  }, [base, fimFiltro, inicioFiltro, mesFiltro, modoFiltro, search]);
-
-  const periodoLabel = modoFiltro === 'mes'
-    ? `Mês selecionado: ${getMesNome(mesFiltro)}`
-    : `Período: ${formatDate(inicioFiltro)} até ${formatDate(fimFiltro)}`;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteConselheiro(deleteTarget.id);
+      toast.success('Conselheiro removido');
+      setDeleteTarget(null);
+      await load();
+    } catch (e: unknown) {
+      toast.error('Erro', e instanceof Error ? e.message : '');
+    } finally { setDeleting(false); }
+  };
 
   return (
     <div>
-      <PageHeader
-        title="Aniversariantes"
-        subtitle={`Dizimistas da ${ceb?.nome ?? 'CEB'} com filtro por mês ou período de nascimento`}
-      />
-
-      <div className="grid-stats" style={{ marginBottom: 16 }}>
-        <StatCard label="Aniversariantes" value={String(aniversariantes.length)} sub={periodoLabel} icon={<Cake size={20} />} color="var(--primary)" />
-        <StatCard label="Filtro" value={modoFiltro === 'mes' ? 'Mês' : 'Período'} sub="Visualização personalizada" icon={<CalendarDays size={20} />} color="var(--info)" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>
+          Conselheiros <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 400 }}>({conselheiros.length})</span>
+        </h1>
+        <Button icon={<Plus size={14} />} onClick={() => { setEditTarget(null); setForm(EMPTY_CON); setModalOpen(true); }}>
+          Novo Conselheiro
+        </Button>
       </div>
 
-      <SectionCard title="Filtros" subtitle="Escolha mês ou período para atualizar a lista">
-        <div className="filter-bar" style={{ marginBottom: 0 }}>
-          <select className="form-select" value={modoFiltro} onChange={(e) => setModoFiltro(e.target.value as 'mes' | 'periodo')}>
-            <option value="mes">Mês específico</option>
-            <option value="periodo">Período personalizado</option>
-          </select>
-
-          {modoFiltro === 'mes' ? (
-            <select className="form-select" value={mesFiltro} onChange={(e) => setMesFiltro(Number(e.target.value))}>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((mes) => (
-                <option key={mes} value={mes}>{getMesNome(mes)}</option>
-              ))}
-            </select>
-          ) : (
-            <>
-              <input className="form-input" type="date" value={inicioFiltro} onChange={(e) => setInicioFiltro(e.target.value)} />
-              <input className="form-input" type="date" value={fimFiltro} onChange={(e) => setFimFiltro(e.target.value)} />
-            </>
-          )}
-
-          <SearchBar value={search} onChange={setSearch} placeholder="Buscar por nome ou telefone" />
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Lista de aniversariantes" subtitle="A lista abaixo muda conforme o filtro selecionado">
-        <div className="table-wrap">
-          <table>
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spinner size={28} /></div>
+      ) : conselheiros.length === 0 ? (
+        <EmptyState icon={<UserCheck size={40} />} title="Nenhum conselheiro cadastrado" />
+      ) : (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr><th>Nome</th><th>Telefone</th><th>Nascimento</th><th>Status</th></tr>
+              <tr style={{ background: 'var(--surface-2)' }}>
+                {['Nome', 'Cargo', 'Pastoral/Mov.', 'Telefone', 'Status', ''].map((h) => (
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase' }}>{h}</th>
+                ))}
+              </tr>
             </thead>
             <tbody>
-              {aniversariantes.length === 0 ? (
-                <tr><td colSpan={4}><EmptyState title="Nenhum aniversariante no filtro" description="Altere o mês ou o período para consultar outros aniversariantes." icon={<Cake size={36} />} /></td></tr>
-              ) : aniversariantes.map((d) => (
-                <tr key={d.id}>
-                  <td style={{ fontWeight: 500 }}>{d.nome}</td>
-                  <td>{d.telefone}</td>
-                  <td>{formatDate(d.dataNascimento)}</td>
-                  <td><StatusBadge status={d.status} /></td>
+              {conselheiros.map((c) => (
+                <tr key={c.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ padding: '12px 14px', fontWeight: 500, color: 'var(--text-1)' }}>{c.nome}</td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text-2)' }}>{c.cargo ?? '—'}</td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text-2)' }}>
+                    {(c.pastorais_movimentos as PastoralMovimento | undefined)?.nome ?? '—'}
+                  </td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text-3)' }}>{c.telefone ?? '—'}</td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <Badge color={c.status === 'ativo' ? 'green' : 'red'}>{c.status}</Badge>
+                  </td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <Button variant="ghost" size="sm" icon={<Pencil size={12} />}
+                        onClick={() => { setEditTarget(c); setForm({ nome: c.nome, telefone: c.telefone ?? '', email: c.email ?? '', cargo: c.cargo ?? '', pastoral_movimento_id: c.pastoral_movimento_id ?? '' }); setModalOpen(true); }} />
+                      <Button variant="ghost" size="sm" icon={<Trash2 size={12} />} onClick={() => setDeleteTarget(c)} style={{ color: 'var(--red)' }} />
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </SectionCard>
+      )}
+
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editTarget ? 'Editar Conselheiro' : 'Novo Conselheiro'} width={480}
+        footer={<><Button variant="secondary" size="sm" onClick={() => setModalOpen(false)}>Cancelar</Button><Button size="sm" onClick={handleSave} loading={saving}>Salvar</Button></>}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Input label="Nome *" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} style={{ gridColumn: '1/-1' }} />
+          <Input label="Cargo" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
+          <Input label="Telefone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
+          <Input label="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Select label="Pastoral/Movimento" value={form.pastoral_movimento_id}
+            onChange={(e) => setForm({ ...form, pastoral_movimento_id: e.target.value })}
+            options={[{ value: '', label: '— Nenhum —' }, ...pastorais.map((p) => ({ value: p.id, label: p.nome }))]}
+            style={{ gridColumn: '1/-1' }} />
+        </div>
+      </Modal>
+
+      <ConfirmDialog open={!!deleteTarget} title="Remover Conselheiro"
+        message={`Remover "${deleteTarget?.nome}"?`}
+        onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} loading={deleting} />
     </div>
   );
 }
 
-// ── CONSELHEIROS PAGE ──────────────────────────────────────────────────────
-export function ConselheirosPage() {
+// ── Aniversariantes CEB ───────────────────────────────────────────────────────
+
+export function AniversariantesCEBPage() {
   const { user } = useAuth();
-  const { getConselheiros, saveConselheiro, deleteConselheiro, getPastorais } = useData();
-  const { showToast } = useToast();
-  const cebId = user!.cebId!;
-  const pastorais = getPastorais().filter((p) => p.status === 'ativo');
-  const [search, setSearch] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [selected, setSelected] = useState<ConselheiroComunitario | null>(null);
-  const [form, setForm] = useState<Partial<ConselheiroComunitario>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [mes, setMes] = useState(new Date().getMonth() + 1);
+  const [lista, setLista] = useState<Dizimista[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const conselheiros = getConselheiros(cebId).filter(
-    (c) => c.nome.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  const openNew = () => { setForm({ status: 'ativo' }); setErrors({}); setSelected(null); setModalOpen(true); };
-  const openEdit = (c: ConselheiroComunitario) => { setForm({ ...c }); setErrors({}); setSelected(c); setModalOpen(true); };
-
-  const validate = () => {
-    const e: Record<string, string> = {};
-    if (!form.nome?.trim()) e.nome = 'Nome obrigatório';
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleSave = () => {
-    if (!validate()) return;
-    saveConselheiro({ ...form, cebId } as ConselheiroComunitario);
-    setModalOpen(false);
-    showToast(selected ? 'Conselheiro atualizado!' : 'Conselheiro cadastrado!');
-  };
-
-  const f = (k: keyof ConselheiroComunitario, v: string) => setForm((p) => ({ ...p, [k]: v }));
+  useEffect(() => {
+    if (!user?.cebId) return;
+    setLoading(true);
+    getAniversariantesMes(user.cebId, mes)
+      .then(setLista)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [mes, user?.cebId]);
 
   return (
     <div>
-      <PageHeader title="Conselheiros Comunitários" subtitle="Membros da liderança da CEB"
-        action={<button className="btn btn-primary" onClick={openNew}><Plus size={16} />Novo conselheiro</button>}
-      />
-      <SectionCard>
-        <div style={{ marginBottom: 16 }}><SearchBar value={search} onChange={setSearch} /></div>
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>Nome</th><th>Cargo</th><th>Pastoral/Movimento</th><th>Telefone</th><th>Status</th><th style={{ textAlign: 'right' }}>Ações</th></tr></thead>
-            <tbody>
-              {conselheiros.length === 0 ? (
-                <tr><td colSpan={6}><EmptyState title="Nenhum conselheiro cadastrado" icon={<UserCheck size={36} />} action={<button className="btn btn-primary btn-sm" onClick={openNew}><Plus size={14} />Cadastrar</button>} /></td></tr>
-              ) : conselheiros.map((c) => {
-                const pastoral = pastorais.find((p) => p.id === c.pastoralMovimentoId);
-                return (
-                  <tr key={c.id}>
-                    <td style={{ fontWeight: 500 }}>{c.nome}</td>
-                    <td>{c.cargo}</td>
-                    <td style={{ color: 'var(--text-3)' }}>{pastoral?.nome ?? '—'}</td>
-                    <td>{c.telefone}</td>
-                    <td><StatusBadge status={c.status} /></td>
-                    <td>
-                      <div className="table-actions">
-                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(c)}><Pencil size={14} /></button>
-                        <button className="btn btn-danger btn-sm" onClick={() => { setSelected(c); setDeleteOpen(true); }}><Trash2 size={14} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>Aniversariantes</h1>
+        <Select label="" value={String(mes)} onChange={(e) => setMes(Number(e.target.value))}
+          options={MESES_FULL.map((m, i) => ({ value: String(i + 1), label: m }))} style={{ minWidth: 140 }} />
+      </div>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={selected ? 'Editar conselheiro' : 'Novo conselheiro'}
-        footer={<><button className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancelar</button><button className="btn btn-primary" onClick={handleSave}>Salvar</button></>}
-      >
-        <div className="form-group">
-          <label className="form-label">Nome *</label>
-          <input className="form-input" value={form.nome ?? ''} onChange={(e) => f('nome', e.target.value)} />
-          {errors.nome && <span className="form-error">{errors.nome}</span>}
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spinner size={28} /></div>
+      ) : lista.length === 0 ? (
+        <EmptyState icon={<Calendar size={40} />} title={`Nenhum aniversariante em ${MESES_FULL[mes - 1]}`} />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+          {lista
+            .sort((a, b) => new Date(a.data_nascimento!).getUTCDate() - new Date(b.data_nascimento!).getUTCDate())
+            .map((d) => (
+              <Card key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--brand-light)', color: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
+                  {formatData(d.data_nascimento!)}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{d.nome}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{d.telefone ?? 'Sem telefone'}</div>
+                </div>
+              </Card>
+            ))}
         </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Cargo</label>
-            <input className="form-input" value={form.cargo ?? ''} onChange={(e) => f('cargo', e.target.value)} placeholder="Ex: Coordenador" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Pastoral / Movimento</label>
-            <select className="form-select" value={form.pastoralMovimentoId ?? ''} onChange={(e) => f('pastoralMovimentoId', e.target.value || '')}>
-              <option value="">Selecionar (opcional)</option>
-              {pastorais.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Telefone</label>
-            <input className="form-input" value={form.telefone ?? ''} onChange={(e) => f('telefone', e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Email</label>
-            <input className="form-input" type="email" value={form.email ?? ''} onChange={(e) => f('email', e.target.value)} />
-          </div>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Status</label>
-          <select className="form-select" value={form.status ?? 'ativo'} onChange={(e) => f('status', e.target.value)}>
-            <option value="ativo">Ativo</option>
-            <option value="inativo">Inativo</option>
-          </select>
-        </div>
-      </Modal>
-
-      <ConfirmDialog open={deleteOpen} title="Excluir conselheiro" message={`Excluir "${selected?.nome}"?`} confirmLabel="Excluir" danger
-        onConfirm={() => { deleteConselheiro(selected!.id); setDeleteOpen(false); showToast('Excluído!'); }}
-        onCancel={() => setDeleteOpen(false)}
-      />
+      )}
     </div>
   );
 }

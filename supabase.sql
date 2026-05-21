@@ -27,7 +27,7 @@ CREATE TABLE public.administradores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nome VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
-  senha VARCHAR(255) NOT NULL,
+
   logo_url TEXT,
   status status_admin NOT NULL DEFAULT 'ativo',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -54,7 +54,7 @@ CREATE TABLE public.paroquias (
   cnpj VARCHAR(20) UNIQUE,
   paroco_nome VARCHAR(255),
   email_login_secretaria VARCHAR(255),
-  senha VARCHAR(255) NOT NULL,
+
   status status_paroquia NOT NULL DEFAULT 'ativa',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -97,7 +97,7 @@ CREATE TABLE public.cebs (
   logo_url TEXT,
   nome VARCHAR(255) NOT NULL,
   email_login VARCHAR(255),
-  senha VARCHAR(255) NOT NULL,
+
   telefone VARCHAR(20),
   status status_ceb NOT NULL DEFAULT 'ativa',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -259,21 +259,21 @@ CREATE TRIGGER trigger_update_alertas_percentuais BEFORE UPDATE ON public.alerta
 -- ============================================================================
 
 -- Administrador
-INSERT INTO public.administradores (nome, email, senha, status)
-VALUES ('Administrador', 'admin@dizimo.com', 'admin123', 'ativo'::status_admin)
+INSERT INTO public.administradores (nome, email, status)
+VALUES ('Administrador', 'admin@dizimo.com', 'ativo'::status_admin)
 ON CONFLICT (email) DO NOTHING;
 
 -- Paróquias
 INSERT INTO public.paroquias 
-(administrador_criou_id, codigo_paroquia, nome, email, telefone, endereco, fundacao, cnpj, paroco_nome, email_login_secretaria, senha, status)
+(administrador_criou_id, codigo_paroquia, nome, email, telefone, endereco, fundacao, cnpj, paroco_nome, email_login_secretaria, status)
 SELECT id, '001', 'Nossa Senhora das Graças', 'paroquia@nsgraças.com.br', '(27) 3522-1234',
   'Rua das Flores, 100 - Centro, Cachoeiro de Itapemirim - ES', '1950-05-13'::date, '12.345.678/0001-90',
-   'Pe. João da Silva', 'secretaria@nsgraças.com.br', 'paroquia123', 'ativa'::status_paroquia
+   'Pe. João da Silva', 'secretaria@nsgraças.com.br', 'ativa'::status_paroquia
 FROM public.administradores WHERE email = 'admin@dizimo.com'
 UNION ALL
 SELECT id, '002', 'São Felipe', 'paroquia@saofelipe.com.br', '(27) 3555-2026',
   'Avenida São Felipe, 50 - Centro, São Felipe - ES', '1968-08-10'::date, '98.765.432/0001-10',
-   'Pe. Antônio Rodrigues', 'secretaria@saofelipe.com.br', 'paroquia123', 'ativa'::status_paroquia
+   'Pe. Antônio Rodrigues', 'secretaria@saofelipe.com.br', 'ativa'::status_paroquia
 FROM public.administradores WHERE email = 'admin@dizimo.com';
 
 -- Configurações das Paróquias
@@ -285,20 +285,20 @@ SELECT id, 35.00, 25.00, 5.00, 10.00, '2024-01-01'::date, true
 FROM public.paroquias WHERE codigo_paroquia = '002';
 
 -- CEBs
-INSERT INTO public.cebs (paroquia_id, codigo_ceb, nome, email_login, senha, telefone, status)
-SELECT id, 'CEB-001', 'CEB São José', 'saojose@ceb.com', 'ceb123', '(27) 99901-1111', 'ativa'::status_ceb
+INSERT INTO public.cebs (paroquia_id, codigo_ceb, nome, email_login, telefone, status)
+SELECT id, 'CEB-001', 'CEB São José', 'saojose@ceb.com', '(27) 99901-1111', 'ativa'::status_ceb
 FROM public.paroquias WHERE codigo_paroquia = '001'
 UNION ALL
-SELECT id, 'CEB-002', 'CEB Santa Maria', 'santamaria@ceb.com', 'ceb123', '(27) 99902-2222', 'ativa'::status_ceb
+SELECT id, 'CEB-002', 'CEB Santa Maria', 'santamaria@ceb.com', '(27) 99902-2222', 'ativa'::status_ceb
 FROM public.paroquias WHERE codigo_paroquia = '001'
 UNION ALL
-SELECT id, 'CEB-003', 'CEB São Francisco', 'saofrancisco@ceb.com', 'ceb123', '(27) 99903-3333', 'ativa'::status_ceb
+SELECT id, 'CEB-003', 'CEB São Francisco', 'saofrancisco@ceb.com', '(27) 99903-3333', 'ativa'::status_ceb
 FROM public.paroquias WHERE codigo_paroquia = '001'
 UNION ALL
-SELECT id, 'CEB-004', 'CEB São Felipe I', 'saofelipe1@ceb.com', 'ceb123', '(27) 99904-4444', 'ativa'::status_ceb
+SELECT id, 'CEB-004', 'CEB São Felipe I', 'saofelipe1@ceb.com', '(27) 99904-4444', 'ativa'::status_ceb
 FROM public.paroquias WHERE codigo_paroquia = '002'
 UNION ALL
-SELECT id, 'CEB-005', 'CEB São Felipe II', 'saofelipe2@ceb.com', 'ceb123', '(27) 99905-5555', 'ativa'::status_ceb
+SELECT id, 'CEB-005', 'CEB São Felipe II', 'saofelipe2@ceb.com', '(27) 99905-5555', 'ativa'::status_ceb
 FROM public.paroquias WHERE codigo_paroquia = '002';
 
 -- Pastorais e Movimentos
