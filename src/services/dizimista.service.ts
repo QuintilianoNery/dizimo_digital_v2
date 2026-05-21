@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import type { Dizimista } from '@/types';
 
 export async function listDizimistas(cebId: string): Promise<Dizimista[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('dizimistas')
     .select('*, cebs(id, nome)')
     .eq('ceb_id', cebId)
@@ -16,7 +16,7 @@ export async function listDizimistas(cebId: string): Promise<Dizimista[]> {
 }
 
 export async function getDizimista(id: string): Promise<Dizimista | null> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('dizimistas')
     .select('*, cebs(id, nome)')
     .eq('id', id)
@@ -28,7 +28,7 @@ export async function getDizimista(id: string): Promise<Dizimista | null> {
 export async function createDizimista(
   payload: Omit<Dizimista, 'id' | 'created_at' | 'updated_at' | 'cebs'>
 ): Promise<Dizimista> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('dizimistas')
     .insert(payload)
     .select()
@@ -41,7 +41,7 @@ export async function updateDizimista(
   id: string,
   updates: Partial<Omit<Dizimista, 'id' | 'created_at' | 'cebs'>>
 ): Promise<Dizimista> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('dizimistas')
     .update(updates)
     .eq('id', id)

@@ -14,7 +14,7 @@ export interface DoacaoFiltros {
 }
 
 export async function listDoacoes(filtros: DoacaoFiltros): Promise<Doacao[]> {
-  let query = supabase
+  let query = (supabase as any)
     .from('doacoes')
     .select('*, dizimistas(id, nome), cebs(id, nome)')
     .order('data_lancamento', { ascending: false });
@@ -33,7 +33,7 @@ export async function listDoacoes(filtros: DoacaoFiltros): Promise<Doacao[]> {
 export async function createDoacao(
   payload: Omit<Doacao, 'id' | 'created_at' | 'updated_at' | 'dizimistas' | 'cebs'>
 ): Promise<Doacao> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('doacoes')
     .insert(payload)
     .select('*, dizimistas(id, nome), cebs(id, nome)')
@@ -46,7 +46,7 @@ export async function updateDoacao(
   id: string,
   updates: Partial<Omit<Doacao, 'id' | 'created_at' | 'dizimistas' | 'cebs'>>
 ): Promise<Doacao> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('doacoes')
     .update(updates)
     .eq('id', id)
@@ -77,7 +77,7 @@ export async function getResumoMensalCeb(
   cebId: string,
   ano: number
 ): Promise<ResumoMensal[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('doacoes')
     .select('competencia_mes, competencia_ano, valor, tipo_doacao')
     .eq('ceb_id', cebId)
@@ -87,7 +87,8 @@ export async function getResumoMensalCeb(
 
   // Agrupa por mês no client
   const meses = new Map<number, ResumoMensal>();
-  (data ?? []).forEach((d) => {
+  const rows = (data ?? []) as any[];
+  rows.forEach((d: any) => {
     if (!meses.has(d.competencia_mes)) {
       meses.set(d.competencia_mes, {
         mes: d.competencia_mes,
@@ -116,14 +117,14 @@ export async function getResumoParoquial(
   mes: number,
   ano: number
 ): Promise<{ cebId: string; cebNome: string; total: number; devolucao: number }[]> {
-  const { data: cebs, error: cebErr } = await supabase
+  const { data: cebs, error: cebErr } = await (supabase as any)
     .from('cebs')
     .select('id, nome')
     .eq('paroquia_id', paroquiaId)
     .eq('status', 'ativa');
   if (cebErr) throw new Error(cebErr.message);
 
-  const { data: config } = await supabase
+  const { data: config } = await (supabase as any)
     .from('configuracoes_paroquias')
     .select('percentual_dizimo_cebs')
     .eq('paroquia_id', paroquiaId)
@@ -133,15 +134,18 @@ export async function getResumoParoquial(
   const pct = config?.percentual_dizimo_cebs ?? 30;
 
   const results = await Promise.all(
-    (cebs ?? []).map(async (ceb) => {
-      const { data: doacoes } = await supabase
+    ((cebs ?? []) as any[]).map(async (ceb: any) => {
+      const { data: doacoes } = await (supabase as any)
         .from('doacoes')
         .select('valor')
         .eq('ceb_id', ceb.id)
         .eq('competencia_mes', mes)
         .eq('competencia_ano', ano);
 
-      const total = (doacoes ?? []).reduce((a, d) => a + Number(d.valor), 0);
+      const total = ((doacoes ?? []) as any[]).reduce(
+        (a: number, d: any) => a + Number(d.valor),
+        0
+      );
       return {
         cebId: ceb.id,
         cebNome: ceb.nome,
