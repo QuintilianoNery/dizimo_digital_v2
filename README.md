@@ -177,8 +177,12 @@ Se quiser avançar com RSBuild, a estrutura atual facilita a extração — cada
 ---
 
 ## 📋 Features a serem implementadas
-- [ ] Tela fica atualizando toda a vez que sai da tela e volta para a página, quando está com um modal de cadastro aberto o modal está sendo fechado pois a tela atualiza 
+- [ ] Tela fica atualizando toda a vez que sai da tela e volta para a página, quando está com um modal de cadastro aberto o modal está sendo fechado pois a tela atualiza
+- [ ] Não deve ser possível excluir uma paroquia que tem cebs vinculadas, deve apresentar uma mensagem de alerta informando que não é possível excluir a paroquia pois existem cebs vinculadas a ela
+- [ ] Não deve ser possível excluir uma cebs que tem dizimistas vinculados, deve apresentar uma mensagem de alerta informando que não é possível excluir a cebs pois existem dizimistas vinculados a ela e lançamentos de doações vinculados a ela.
+- [ ] Não deve ser possível excluir um dizimista que tem lançamentos de doações vinculados, deve apresentar uma mensagem de alerta informando que não é possível excluir o dizimista pois existem lançamentos de doações vinculados a ele.
 - [ ] Alteração de senha em cada cadastro, administrador, paroquial e cebs
+- [ ] Se quiser, eu posso fazer a próxima etapa e revisar/corrigir as policies do Supabase para deixar a proteção de verdade mais sólida.
 - [ ] Notificação para as cebs quando alterar o valor do percentual de repasse de dizimo e de ofertas para a paroquia
 - [ ] Dashboard da Cebs com total de Dizimo, total de Doações, total de ofertas, total de repasse para paroquia(Dizimo, oferta com o percentual que foi calculado aquele repasse), com base na configuração de percentual de repasse
 - [ ] Dashboard da Paroquia com total de Dizimo, total de Doações, total de ofertas, total de repasse recebido das cebs
