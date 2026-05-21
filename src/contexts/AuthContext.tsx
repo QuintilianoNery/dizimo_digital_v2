@@ -6,7 +6,11 @@ import type { AppUser, UserRole, AuthState } from '@/types';
 // ── Context ───────────────────────────────────────────────────────────────────
 
 interface AuthContextValue extends AuthState {
-  login: (email: string, password: string, expectedRole?: UserRole) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+    expectedRole?: UserRole | UserRole[]
+  ) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -50,9 +54,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadUser]);
 
   const login = useCallback(
-    async (email: string, password: string, expectedRole?: UserRole) => {
+    async (email: string, password: string, expectedRole?: UserRole | UserRole[]) => {
       const { user, role } = await signIn(email, password);
-      if (expectedRole && role !== expectedRole) {
+      const expectedRoles = Array.isArray(expectedRole) ? expectedRole : expectedRole ? [expectedRole] : [];
+      if (expectedRoles.length > 0 && !expectedRoles.includes(role)) {
         await signOut();
         throw new Error('Acesso negado para este perfil.');
       }

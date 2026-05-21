@@ -17,6 +17,9 @@ src/
 ├── types/
 │   ├── database.ts            # Tipos gerados do schema
 │   └── app.ts                 # Tipos da aplicação (roles, user, etc.)
+├── config/
+│   ├── tsconfig.app.json      # Configuração TypeScript do app
+│   └── tsconfig.node.json     # Configuração TypeScript do Vite
 ├── services/
 │   ├── auth.service.ts        # Login/logout + detecção de role
 │   ├── admin.service.ts       # CRUD Administradores e Paróquias
@@ -37,7 +40,9 @@ src/
     └── cebs/                  # Dashboard, Doações, Dizimistas, Conselheiros…
 migrations/
 └── 001_remove_senha_columns_use_supabase_auth.sql
-supabase.sql                   # Schema completo + seed
+database/
+├── supabase.sql               # Schema completo + seed
+└── supabase_grants_audit_fix.sql
 ```
 
 ---
@@ -48,8 +53,9 @@ supabase.sql                   # Schema completo + seed
 
 1. Acesse [supabase.com](https://supabase.com) → seu projeto
 2. Vá em **SQL Editor** → New Query
-3. Cole o conteúdo de `supabase.sql` e execute
+3. Cole o conteúdo de `database/supabase.sql` e execute
 4. Se o projeto já existe com a v1, execute apenas o `migrations/001_remove_senha_columns_use_supabase_auth.sql`
+5. Se precisar auditar/grant de leitura, rode `database/supabase_grants_audit_fix.sql`
 
 ### 2. Obter a Anon Key (JWT)
 
@@ -166,5 +172,17 @@ Se quiser avançar com RSBuild, a estrutura atual facilita a extração — cada
 | `Invalid login credentials` | Usuário não existe no Auth | Crie o usuário em Authentication → Users |
 | `Failed to fetch` | Anon key errada (usando `sb_publishable_`) | Use a JWT `eyJ...` de Settings → API |
 | `new row violates row-level security` | RLS bloqueando a inserção | Verifique se o e-mail do auth.users bate com o cadastro nas tabelas |
-| `relation does not exist` | Schema não foi rodado | Execute o `supabase.sql` no SQL Editor |
+| `relation does not exist` | Schema não foi rodado | Execute o `database/supabase.sql` no SQL Editor |
 | Usuário logado mas sem dados | E-mail com case diferente | O app já usa `.ilike()` e `.toLowerCase()` — verifique o e-mail no Auth |
+---
+
+## 📋 Features a serem implementadas
+- [ ] Notificação para as cebs quando alterar o valor do percentual de repasse de dizimo e de ofertas para a paroquia
+- [ ] Dashboard da Cebs com total de Dizimo, total de Doações, total de ofertas, total de repasse para paroquia, com base na configuração de percentual de repasse
+- [ ] Dashboard da Paroquia com total de Dizimo, total de Doações, total de ofertas, total de repasse recebido das cebs
+- [ ] Dashboard do Admin com total de Paroquias, total de Cebs, total de Dizimistas
+- [ ] notificação na tela de Dashboard Cebs quando tiver um dizimista fazendo aniversário. Deve apresentar uma mensagem de alerta com a quantidade de aniversariantes do mes e um botão para ir para a tela de aniversariantes do mês
+- [ ] Tela de aniversariantes do mês, apresentando os aniversariantes do mês em uma lista com nome, data de nascimento e telefone
+- [ ] Relatório de doações, com filtros por data, valor, tipo (dizimo, oferta, outro), e exportação para CSV
+- [ ] tela fica atualizando toda a vez que sai da tela e volta para a página, quando está com um modal de cadastro aberto o modal está sendo fechado pois a tela atualiza 
+- [ ] 

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { UserRole } from '@/types';
 
 interface LoginFormProps {
-  expectedRole: UserRole;
+  expectedRole?: UserRole | UserRole[];
   title: string;
   subtitle: string;
   redirectPath: string;
@@ -171,7 +171,7 @@ function LoginForm({ expectedRole, title, subtitle, redirectPath, isAdmin }: Log
 export function LoginPage() {
   return (
     <LoginForm
-      expectedRole="paroquial"
+      expectedRole={['paroquial', 'ceb']}
       title="Dízimo Digital"
       subtitle="Paróquias e Comunidades (CEBs)"
       redirectPath="/paroquial/dashboard"
