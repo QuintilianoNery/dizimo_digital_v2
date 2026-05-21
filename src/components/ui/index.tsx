@@ -1,232 +1,440 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { X, CheckCircle, AlertCircle, AlertTriangle, Info, XCircle } from 'lucide-react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  forwardRef,
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react';
+import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { v4 as uuid } from 'uuid';
+import type { ToastMessage } from '@/types';
 
-// ── MODAL ──────────────────────────────────────────────────────────────────
-interface ModalProps {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-  footer?: React.ReactNode;
-  size?: 'default' | 'lg';
-}
-export function Modal({ open, onClose, title, children, footer, size = 'default' }: ModalProps) {
-  if (!open) return null;
-  return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal ${size === 'lg' ? 'modal-lg' : ''}`}>
-        <div className="modal-header">
-          <span className="modal-title">{title}</span>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Fechar">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="modal-body">{children}</div>
-        {footer && <div className="modal-footer">{footer}</div>}
-      </div>
-    </div>
-  );
+// ============================================================================
+// TOAST SYSTEM
+// ============================================================================
+
+interface ToastContextValue {
+  success: (title: string, msg?: string) => void;
+  error: (title: string, msg?: string) => void;
+  warning: (title: string, msg?: string) => void;
+  info: (title: string, msg?: string) => void;
 }
 
-// ── CONFIRM DIALOG ─────────────────────────────────────────────────────────
-interface ConfirmProps {
-  open: boolean;
-  title: string;
-  message: string;
-  confirmLabel?: string;
-  danger?: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-export function ConfirmDialog({ open, title, message, confirmLabel = 'Confirmar', danger, onConfirm, onCancel }: ConfirmProps) {
-  if (!open) return null;
-  return (
-    <div className="modal-overlay">
-      <div className="modal" style={{ maxWidth: 420 }}>
-        <div className="modal-header">
-          <span className="modal-title">{title}</span>
-          <button className="btn btn-ghost btn-sm" onClick={onCancel}><X size={16} /></button>
-        </div>
-        <div className="modal-body">
-          <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6 }}>{message}</p>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-ghost" onClick={onCancel}>Cancelar</button>
-          <button className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onConfirm}>
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── ALERT ──────────────────────────────────────────────────────────────────
-export type AlertVariant = 'success' | 'danger' | 'warning' | 'info' | 'gray';
-interface AlertProps {
-  variant?: AlertVariant;
-  title?: string;
-  message: React.ReactNode;
-  icon?: React.ReactNode;
-  action?: React.ReactNode;
-  onClose?: () => void;
-  compact?: boolean;
-}
-
-export function Alert({
-  variant = 'info',
-  title,
-  message,
-  icon,
-  action,
-  onClose,
-  compact,
-}: AlertProps) {
-  return (
-    <div className={`tg-alert tg-alert-${variant}${compact ? ' tg-alert-compact' : ''}`}>
-      {icon && <span className="tg-alert-icon">{icon}</span>}
-      <div className="tg-alert-content">
-        {title && <div className="tg-alert-title">{title}</div>}
-        <div className="tg-alert-message">{message}</div>
-      </div>
-      {action && <div className="tg-alert-action">{action}</div>}
-      {onClose && (
-        <button type="button" className="tg-alert-close" onClick={onClose} aria-label="Fechar alerta">
-          <X size={14} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ── TOAST ──────────────────────────────────────────────────────────────────
-type ToastType = 'success' | 'error' | 'info';
-interface Toast { id: string; message: string; type: ToastType; title?: string; icon?: React.ReactNode; }
-interface ToastCtx { showToast: (msg: string, type?: ToastType, opts?: { title?: string; durationMs?: number; icon?: React.ReactNode }) => void; }
-const ToastContext = createContext<ToastCtx>({ showToast: () => {} });
+const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const showToast = useCallback((message: string, type: ToastType = 'success', opts?: { title?: string; durationMs?: number; icon?: React.ReactNode }) => {
-    const id = Math.random().toString(36).slice(2);
-    setToasts((t) => [...t, { id, message, type, title: opts?.title, icon: opts?.icon }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), opts?.durationMs ?? 3500);
-  }, []);
-  return (
-    <ToastContext.Provider value={{ showToast }}>
-      {children}
-      <div className="toast-container">
-        {toasts.map((t) => {
-          const variant: AlertVariant = t.type === 'error' ? 'danger' : t.type;
-          const title = t.type === 'success' ? 'Sucesso' : t.type === 'error' ? 'Erro' : 'Informação';
-          const icon = t.icon ?? (t.type === 'success'
-            ? <CheckCircle size={16} />
-            : t.type === 'error'
-              ? <XCircle size={16} />
-              : <Info size={16} />);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  const add = useCallback((type: ToastMessage['type'], title: string, message?: string) => {
+    const id = uuid();
+    setToasts((prev) => [...prev, { id, type, title, message }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
+  }, []);
+
+  const remove = (id: string) => setToasts((prev) => prev.filter((t) => t.id !== id));
+
+  const icons = { success: CheckCircle, error: AlertCircle, warning: AlertTriangle, info: Info };
+  const colors = {
+    success: 'var(--green)',
+    error: 'var(--red)',
+    warning: 'var(--amber)',
+    info: 'var(--blue)',
+  };
+
+  return (
+    <ToastContext.Provider
+      value={{
+        success: (t, m) => add('success', t, m),
+        error: (t, m) => add('error', t, m),
+        warning: (t, m) => add('warning', t, m),
+        info: (t, m) => add('info', t, m),
+      }}
+    >
+      {children}
+      <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {toasts.map((t) => {
+          const Icon = icons[t.type];
           return (
-            <Alert
+            <div
               key={t.id}
-              variant={variant}
-              title={t.title ?? title}
-              message={t.message}
-              icon={icon}
-              compact
-            />
+              style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'flex-start',
+                background: 'var(--surface)',
+                border: `1px solid var(--border)`,
+                borderLeft: `4px solid ${colors[t.type]}`,
+                borderRadius: 8,
+                padding: '12px 16px',
+                minWidth: 300,
+                maxWidth: 400,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                animation: 'slideIn .2s ease',
+              }}
+            >
+              <Icon size={18} color={colors[t.type]} style={{ flexShrink: 0, marginTop: 2 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-1)' }}>{t.title}</div>
+                {t.message && <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{t.message}</div>}
+              </div>
+              <button onClick={() => remove(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 0 }}>
+                <X size={14} />
+              </button>
+            </div>
           );
         })}
       </div>
     </ToastContext.Provider>
   );
 }
-export function useToast() { return useContext(ToastContext); }
 
-// ── EMPTY STATE ────────────────────────────────────────────────────────────
-export function EmptyState({ icon, title, description, action }: {
-  icon?: React.ReactNode; title: string; description?: string; action?: React.ReactNode;
-}) {
+export function useToast(): ToastContextValue {
+  const ctx = useContext(ToastContext);
+  if (!ctx) throw new Error('useToast deve ser usado dentro de <ToastProvider>');
+  return ctx;
+}
+
+// ============================================================================
+// BUTTON
+// ============================================================================
+
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+type ButtonSize = 'sm' | 'md' | 'lg';
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  loading?: boolean;
+  icon?: React.ReactNode;
+}
+
+const btnStyles: Record<ButtonVariant, React.CSSProperties> = {
+  primary: { background: 'var(--brand)', color: '#fff', border: '1px solid var(--brand)' },
+  secondary: { background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border)' },
+  danger: { background: 'var(--red)', color: '#fff', border: '1px solid var(--red)' },
+  ghost: { background: 'transparent', color: 'var(--text-2)', border: '1px solid transparent' },
+};
+
+const sizeStyles: Record<ButtonSize, React.CSSProperties> = {
+  sm: { padding: '6px 12px', fontSize: 12, height: 30 },
+  md: { padding: '8px 16px', fontSize: 13, height: 36 },
+  lg: { padding: '10px 20px', fontSize: 14, height: 42 },
+};
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ variant = 'primary', size = 'md', loading, icon, children, style, disabled, ...props }, ref) => (
+    <button
+      ref={ref}
+      disabled={disabled || loading}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        borderRadius: 6,
+        fontWeight: 500,
+        cursor: disabled || loading ? 'not-allowed' : 'default',
+        opacity: disabled ? 0.6 : 1,
+        transition: 'opacity .15s, box-shadow .15s',
+        ...btnStyles[variant],
+        ...sizeStyles[size],
+        ...style,
+      }}
+      {...props}
+    >
+      {loading ? <Spinner size={14} /> : icon}
+      {children}
+    </button>
+  )
+);
+
+// ============================================================================
+// INPUT
+// ============================================================================
+
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  hint?: string;
+}
+
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ label, error, hint, id, style, ...props }, ref) => {
+    const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {label && (
+          <label htmlFor={inputId} style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>
+            {label}
+          </label>
+        )}
+        <input
+          ref={ref}
+          id={inputId}
+          style={{
+            height: 36,
+            padding: '0 12px',
+            borderRadius: 6,
+            border: `1px solid ${error ? 'var(--red)' : 'var(--border)'}`,
+            background: 'var(--surface)',
+            color: 'var(--text-1)',
+            fontSize: 13,
+            outline: 'none',
+            ...style,
+          }}
+          {...props}
+        />
+        {error && <span style={{ fontSize: 11, color: 'var(--red)' }}>{error}</span>}
+        {hint && !error && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{hint}</span>}
+      </div>
+    );
+  }
+);
+
+// ============================================================================
+// SELECT
+// ============================================================================
+
+interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  label?: string;
+  error?: string;
+  options: { value: string; label: string }[];
+}
+
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(
+  ({ label, error, options, id, style, ...props }, ref) => {
+    const selectId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {label && (
+          <label htmlFor={selectId} style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>
+            {label}
+          </label>
+        )}
+        <select
+          ref={ref}
+          id={selectId}
+          style={{
+            height: 36,
+            padding: '0 12px',
+            borderRadius: 6,
+            border: `1px solid ${error ? 'var(--red)' : 'var(--border)'}`,
+            background: 'var(--surface)',
+            color: 'var(--text-1)',
+            fontSize: 13,
+            ...style,
+          }}
+          {...props}
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        {error && <span style={{ fontSize: 11, color: 'var(--red)' }}>{error}</span>}
+      </div>
+    );
+  }
+);
+
+// ============================================================================
+// TEXTAREA
+// ============================================================================
+
+interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label?: string;
+  error?: string;
+}
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ label, error, id, style, ...props }, ref) => {
+    const taId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {label && (
+          <label htmlFor={taId} style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>
+            {label}
+          </label>
+        )}
+        <textarea
+          ref={ref}
+          id={taId}
+          style={{
+            padding: '8px 12px',
+            borderRadius: 6,
+            border: `1px solid ${error ? 'var(--red)' : 'var(--border)'}`,
+            background: 'var(--surface)',
+            color: 'var(--text-1)',
+            fontSize: 13,
+            resize: 'vertical',
+            minHeight: 80,
+            ...style,
+          }}
+          {...props}
+        />
+        {error && <span style={{ fontSize: 11, color: 'var(--red)' }}>{error}</span>}
+      </div>
+    );
+  }
+);
+
+// ============================================================================
+// MODAL
+// ============================================================================
+
+interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  width?: number;
+}
+
+export function Modal({ open, onClose, title, children, footer, width = 480 }: ModalProps) {
+  if (!open) return null;
   return (
-    <div className="empty-state">
-      {icon}
-      <p>{title}</p>
-      {description && <span>{description}</span>}
-      {action && <div style={{ marginTop: 16 }}>{action}</div>}
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 1000, padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--surface)',
+          borderRadius: 10,
+          width: '100%',
+          maxWidth: width,
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 20px 60px rgba(0,0,0,.3)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text-1)' }}>{title}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+        <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>{children}</div>
+        {footer && (
+          <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            {footer}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// ── STATUS BADGE ───────────────────────────────────────────────────────────
-export function StatusBadge({ status }: { status: string }) {
-  const isActive = status === 'ativo' || status === 'ativa';
+// ============================================================================
+// BADGE
+// ============================================================================
+
+type BadgeColor = 'green' | 'red' | 'amber' | 'blue' | 'gray';
+
+interface BadgeProps {
+  color?: BadgeColor;
+  children: React.ReactNode;
+}
+
+const badgeColors: Record<BadgeColor, { bg: string; text: string }> = {
+  green: { bg: 'rgba(34,197,94,.15)', text: 'var(--green)' },
+  red: { bg: 'rgba(239,68,68,.15)', text: 'var(--red)' },
+  amber: { bg: 'rgba(245,158,11,.15)', text: 'var(--amber)' },
+  blue: { bg: 'rgba(59,130,246,.15)', text: 'var(--blue)' },
+  gray: { bg: 'var(--surface-2)', text: 'var(--text-3)' },
+};
+
+export function Badge({ color = 'gray', children }: BadgeProps) {
+  const { bg, text } = badgeColors[color];
   return (
-    <span className={`badge ${isActive ? 'badge-success' : 'badge-danger'}`}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
-      {isActive ? 'Ativo' : 'Inativo'}
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      padding: '2px 8px', borderRadius: 99,
+      fontSize: 11, fontWeight: 600,
+      background: bg, color: text,
+    }}>
+      {children}
     </span>
   );
 }
 
-// ── STAT CARD ──────────────────────────────────────────────────────────────
-export function StatCard({ label, value, sub, icon, color }: {
-  label: string; value: string; sub?: string; icon: React.ReactNode; color: string;
-}) {
-  return (
-    <div className="stat-card">
-      <div className="stat-icon" style={{ background: color + '20' }}>
-        <span style={{ color }}>{icon}</span>
-      </div>
-      <div className="stat-label">{label}</div>
-      <div className="stat-value">{value}</div>
-      {sub && <div className="stat-sub">{sub}</div>}
-    </div>
-  );
-}
+// ============================================================================
+// CARD
+// ============================================================================
 
-// ── PAGE HEADER ────────────────────────────────────────────────────────────
-export function PageHeader({ title, subtitle, action }: {
-  title: string; subtitle?: string; action?: React.ReactNode;
-}) {
+export function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div className="page-header">
-      <div>
-        <h1 className="page-title">{title}</h1>
-        {subtitle && <p className="page-subtitle">{subtitle}</p>}
-      </div>
-      {action && <div>{action}</div>}
-    </div>
-  );
-}
-
-// ── SEARCH BAR ─────────────────────────────────────────────────────────────
-import { Search } from 'lucide-react';
-export function SearchBar({ value, onChange, placeholder = 'Buscar...' }: {
-  value: string; onChange: (v: string) => void; placeholder?: string;
-}) {
-  return (
-    <div className="search-input">
-      <Search size={15} />
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
-    </div>
-  );
-}
-
-// ── SECTION CARD ───────────────────────────────────────────────────────────
-export function SectionCard({ title, subtitle, action, children }: {
-  title?: string; subtitle?: string; action?: React.ReactNode; children: React.ReactNode;
-}) {
-  return (
-    <div className="card">
-      {(title || action) && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div>
-            {title && <div className="card-title">{title}</div>}
-            {subtitle && <div className="card-subtitle">{subtitle}</div>}
-          </div>
-          {action}
-        </div>
-      )}
+    <div style={{
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 10,
+      padding: 20,
+      ...style,
+    }}>
       {children}
     </div>
+  );
+}
+
+// ============================================================================
+// SPINNER
+// ============================================================================
+
+export function Spinner({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ animation: 'spin 1s linear infinite' }}>
+      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray="40" strokeDashoffset="15" />
+    </svg>
+  );
+}
+
+// ============================================================================
+// EMPTY STATE
+// ============================================================================
+
+export function EmptyState({ icon, title, description }: { icon?: React.ReactNode; title: string; description?: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', gap: 8, color: 'var(--text-3)' }}>
+      {icon && <div style={{ marginBottom: 8, opacity: 0.5 }}>{icon}</div>}
+      <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: 'var(--text-2)' }}>{title}</p>
+      {description && <p style={{ margin: 0, fontSize: 12 }}>{description}</p>}
+    </div>
+  );
+}
+
+// ============================================================================
+// CONFIRM DIALOG
+// ============================================================================
+
+interface ConfirmProps {
+  open: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+export function ConfirmDialog({ open, title, message, onConfirm, onCancel, loading }: ConfirmProps) {
+  return (
+    <Modal open={open} onClose={onCancel} title={title} width={380}
+      footer={
+        <>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={loading}>Cancelar</Button>
+          <Button variant="danger" size="sm" onClick={onConfirm} loading={loading}>Confirmar</Button>
+        </>
+      }
+    >
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-2)' }}>{message}</p>
+    </Modal>
   );
 }
