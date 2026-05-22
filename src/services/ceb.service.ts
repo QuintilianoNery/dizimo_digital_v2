@@ -5,9 +5,9 @@
 import { supabase } from '@/lib/supabase';
 import type { Ceb } from '@/types';
 
-export async function listCebs(paroquiaId?: string): Promise<Ceb[]> {
+export async function listCebs(paroquiaId: string): Promise<Ceb[]> {
   let query = supabase.from('cebs').select('*').order('nome');
-  if (paroquiaId) query = query.eq('paroquia_id', paroquiaId);
+  query = query.eq('paroquia_id', paroquiaId);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data ?? [];

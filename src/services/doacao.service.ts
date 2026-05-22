@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import type { Doacao, TipoDoacao, FormaPagamento } from '@/types';
 
 export interface DoacaoFiltros {
-  cebId?: string;
+  cebId: string;
   mes?: number;
   ano?: number;
   tipo?: TipoDoacao;
@@ -19,7 +19,7 @@ export async function listDoacoes(filtros: DoacaoFiltros): Promise<Doacao[]> {
     .select('*, dizimistas(id, nome), cebs(id, nome)')
     .order('data_lancamento', { ascending: false });
 
-  if (filtros.cebId) query = query.eq('ceb_id', filtros.cebId);
+  query = query.eq('ceb_id', filtros.cebId);
   if (filtros.mes) query = query.eq('competencia_mes', filtros.mes);
   if (filtros.ano) query = query.eq('competencia_ano', filtros.ano);
   if (filtros.tipo) query = query.eq('tipo_doacao', filtros.tipo);
