@@ -25,6 +25,7 @@ import {
   Card, useToast, Select, Textarea,
 } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePersistentModalDraft } from '@/hooks/usePersistentModalDraft';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -128,9 +129,15 @@ export function DoacoesPage() {
   const [doacoes, setDoacoes] = useState<Doacao[]>([]);
   const [dizimistas, setDizimistas] = useState<Dizimista[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Doacao | null>(null);
-  const [form, setForm] = useState<DoacaoForm>(EMPTY_DOACAO);
+  const {
+    modalOpen,
+    setModalOpen,
+    editTarget,
+    setEditTarget,
+    form,
+    setForm,
+    clearDraft,
+  } = usePersistentModalDraft<DoacaoForm, Doacao>('dizimo-digital:cebs:doacoes:draft', EMPTY_DOACAO);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Doacao | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -191,6 +198,7 @@ export function DoacoesPage() {
       else await createDoacao(payload);
       toast.success(editTarget ? 'Lançamento atualizado!' : 'Lançamento registrado!');
       setModalOpen(false);
+      clearDraft();
       await load();
     } catch (e: unknown) {
       toast.error('Erro ao salvar', e instanceof Error ? e.message : '');
@@ -333,9 +341,15 @@ export function DizimistasPage() {
   const [dizimistas, setDizimistas] = useState<Dizimista[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Dizimista | null>(null);
-  const [form, setForm] = useState<DizForm>(EMPTY_DIZ);
+  const {
+    modalOpen,
+    setModalOpen,
+    editTarget,
+    setEditTarget,
+    form,
+    setForm,
+    clearDraft,
+  } = usePersistentModalDraft<DizForm, Dizimista>('dizimo-digital:cebs:dizimistas:draft', EMPTY_DIZ);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Dizimista | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -372,6 +386,7 @@ export function DizimistasPage() {
       else await createDizimista(payload);
       toast.success(editTarget ? 'Dizimista atualizado!' : 'Dizimista cadastrado!');
       setModalOpen(false);
+      clearDraft();
       await load();
     } catch (e: unknown) {
       toast.error('Erro', e instanceof Error ? e.message : '');
@@ -476,9 +491,15 @@ export function ConselheirosPage() {
   const [conselheiros, setConselheiros] = useState<ConselheiroComunitario[]>([]);
   const [pastorais, setPastorais] = useState<PastoralMovimento[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<ConselheiroComunitario | null>(null);
-  const [form, setForm] = useState<ConselForm>(EMPTY_CON);
+  const {
+    modalOpen,
+    setModalOpen,
+    editTarget,
+    setEditTarget,
+    form,
+    setForm,
+    clearDraft,
+  } = usePersistentModalDraft<ConselForm, ConselheiroComunitario>('dizimo-digital:cebs:conselheiros:draft', EMPTY_CON);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ConselheiroComunitario | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -514,6 +535,7 @@ export function ConselheirosPage() {
       else await createConselheiro(payload);
       toast.success(editTarget ? 'Atualizado!' : 'Conselheiro cadastrado!');
       setModalOpen(false);
+      clearDraft();
       await load();
     } catch (e: unknown) {
       toast.error('Erro', e instanceof Error ? e.message : '');

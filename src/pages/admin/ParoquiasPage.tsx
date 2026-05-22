@@ -9,6 +9,7 @@ import {
   Button, Modal, Input, Badge, ConfirmDialog, EmptyState, Spinner, useToast,
 } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePersistentModalDraft } from '@/hooks/usePersistentModalDraft';
 
 type FormData = {
   codigo_paroquia: string;
@@ -32,9 +33,15 @@ export function ParoquiasPage() {
   const toast = useToast();
   const [paroquias, setParoquias] = useState<Paroquia[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Paroquia | null>(null);
-  const [form, setForm] = useState<FormData>(EMPTY_FORM);
+  const {
+    modalOpen,
+    setModalOpen,
+    editTarget,
+    setEditTarget,
+    form,
+    setForm,
+    clearDraft,
+  } = usePersistentModalDraft<FormData, Paroquia>('dizimo-digital:admin:paroquias:draft', EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Paroquia | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -115,6 +122,7 @@ export function ParoquiasPage() {
         toast.success('Paróquia criada!');
       }
       setModalOpen(false);
+      clearDraft();
       await load();
     } catch (e: unknown) {
       toast.error('Erro ao salvar', e instanceof Error ? e.message : '');
