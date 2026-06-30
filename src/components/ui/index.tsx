@@ -9,6 +9,11 @@ import React, {
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react';
+import { IMaskInput } from 'react-imask';
+import { cnpj as cnpjValidator } from 'cpf-cnpj-validator';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
+import isEmail from 'validator/lib/isEmail';
+import { parse as parseDate, isValid as isValidDate } from 'date-fns';
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
 import type { ToastMessage } from '@/types';
@@ -152,18 +157,57 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 );
 
 // ============================================================================
-// INPUT
+// INPUT PROPS
 // ============================================================================
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   hint?: string;
+  mask?: 'cnpj' | 'phone' | 'email' | 'date';
+  onValidate?: (valid: boolean) => void;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, hint, id, style, ...props }, ref) => {
+  ({ label, error, hint, id, style, mask, onValidate, onChange, value, ...props }, ref) => {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
+    const [touched, setTouched] = useState(false);
+    const [internalValid, setInternalValid] = useState<boolean | null>(null);
+
+    const runValidate = (val: string) => {
+      if (!mask) { onValidate?.(true); return true; }
+      let valid = true;
+      switch (mask) {
+        case 'cnpj':
+          valid = cnpjValidator.isValid((val || '').replace(/\D/g, ''));
+          break;
+        case 'phone': {
+          try {
+            const p = parsePhoneNumberFromString(val, 'BR');
+            valid = !!p && p.isValid();
+          } catch { valid = false; }
+          break;
+        }
+        case 'date': {
+          const parsed = parseDate(val, 'dd/MM/yyyy', new Date());
+          valid = isValidDate(parsed);
+          break;
+        }
+        case 'email':
+          valid = isEmail((val || '').trim());
+          break;
+        default:
+          valid = true;
+      }
+      onValidate?.(valid);
+      setInternalValid(valid);
+      return valid;
+    };
+
+    const maskPattern = mask === 'cnpj' ? '00.000.000/0000-00' : mask === 'phone' ? [{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }] : mask === 'date' ? '00/00/0000' : undefined;
+
+    const displayValue = value === undefined ? props.defaultValue ?? '' : value ?? '';
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {label && (
@@ -171,28 +215,80 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {label}
           </label>
         )}
-        <input
-          ref={ref}
-          id={inputId}
-          style={{
-            height: 36,
-            padding: '0 12px',
-            borderRadius: 6,
-            border: `1px solid ${error ? 'var(--red)' : 'var(--border)'}`,
-            background: 'var(--surface)',
-            color: 'var(--text-1)',
-            fontSize: 13,
-            outline: 'none',
-            ...style,
-          }}
-          {...props}
-        />
-        {error && <span style={{ fontSize: 11, color: 'var(--red)' }}>{error}</span>}
-        {hint && !error && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{hint}</span>}
+        {maskPattern ? (
+          <IMaskInput
+            id={inputId}
+            mask={maskPattern as any}
+            value={displayValue as any}
+            inputRef={ref as any}
+            dispatch={mask === 'phone' ? (appended, dynamicMasked) => {
+              const number = (dynamicMasked.value + appended).replace(/\D/g, '');
+              return dynamicMasked.compiledMasks.find((currentMask) => {
+                const pattern = currentMask.mask as string;
+                return number.length <= 10 ? pattern === '(00) 0000-0000' : pattern === '(00) 00000-0000';
+              }) ?? dynamicMasked.compiledMasks[0];
+            } : undefined}
+            onAccept={(val: string) => {
+              runValidate(val);
+              // Format phone using libphonenumber when possible
+              let out = val;
+              if (mask === 'phone') {
+                try {
+                  const pn = parsePhoneNumberFromString(val, 'BR');
+                  if (pn) out = pn.formatNational();
+                } catch (e) { /* ignore */ }
+              }
+              const ev = { target: { value: out } } as unknown as React.ChangeEvent<HTMLInputElement>;
+              onChange?.(ev);
+            }}
+            onBlur={() => setTouched(true)}
+            style={{
+              height: 36,
+              padding: '0 12px',
+              borderRadius: 6,
+              border: `1px solid ${error ? 'var(--red)' : 'var(--border)'}`,
+              background: 'var(--surface)',
+              color: 'var(--text-1)',
+              fontSize: 13,
+              outline: 'none',
+              ...style,
+            }}
+            {...props}
+          />
+        ) : (
+          <input
+            ref={ref}
+            id={inputId}
+            value={displayValue as any}
+            onChange={(e) => { onChange?.(e); runValidate(e.target.value); }}
+            onBlur={() => setTouched(true)}
+            style={{
+              height: 36,
+              padding: '0 12px',
+              borderRadius: 6,
+              border: `1px solid ${error ? 'var(--red)' : 'var(--border)'}`,
+              background: 'var(--surface)',
+              color: 'var(--text-1)',
+              fontSize: 13,
+              outline: 'none',
+              ...style,
+            }}
+            {...props}
+          />
+        )}
+        {/* show external error prop first, otherwise show internal validation message when touched and invalid */}
+        {error ? (
+          <span style={{ fontSize: 11, color: 'var(--red)' }}>{error}</span>
+        ) : internalValid === false && touched ? (
+          <span style={{ fontSize: 11, color: 'var(--red)' }}>
+            {mask === 'cnpj' ? 'CNPJ inválido' : mask === 'phone' ? 'Telefone inválido' : mask === 'date' ? 'Data inválida' : mask === 'email' ? 'E-mail inválido' : ''}
+          </span>
+        ) : hint && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{hint}</span>}
       </div>
     );
   }
 );
+
 
 // ============================================================================
 // SELECT

@@ -3,6 +3,9 @@
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
+import isEmail from 'validator/lib/isEmail';
+import { parse as parseDate, isValid as isValidDate, format as formatDate } from 'date-fns';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { Plus, Pencil, Trash2, Gift, Users, UserCheck, Calendar, DollarSign } from 'lucide-react';
 import { getCebDashboardStats, type CebDashboardStats } from '@/services/ceb.service';
 import {
@@ -25,6 +28,7 @@ import {
   Card, useToast, Select, Textarea,
 } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePersistentModalDraft } from '@/hooks/usePersistentModalDraft';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -128,9 +132,15 @@ export function DoacoesPage() {
   const [doacoes, setDoacoes] = useState<Doacao[]>([]);
   const [dizimistas, setDizimistas] = useState<Dizimista[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Doacao | null>(null);
-  const [form, setForm] = useState<DoacaoForm>(EMPTY_DOACAO);
+  const {
+    modalOpen,
+    setModalOpen,
+    editTarget,
+    setEditTarget,
+    form,
+    setForm,
+    clearDraft,
+  } = usePersistentModalDraft<DoacaoForm, Doacao>('dizimo-digital:cebs:doacoes:draft', EMPTY_DOACAO);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Doacao | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -191,6 +201,7 @@ export function DoacoesPage() {
       else await createDoacao(payload);
       toast.success(editTarget ? 'Lançamento atualizado!' : 'Lançamento registrado!');
       setModalOpen(false);
+      clearDraft();
       await load();
     } catch (e: unknown) {
       toast.error('Erro ao salvar', e instanceof Error ? e.message : '');
@@ -333,9 +344,15 @@ export function DizimistasPage() {
   const [dizimistas, setDizimistas] = useState<Dizimista[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Dizimista | null>(null);
-  const [form, setForm] = useState<DizForm>(EMPTY_DIZ);
+  const {
+    modalOpen,
+    setModalOpen,
+    editTarget,
+    setEditTarget,
+    form,
+    setForm,
+    clearDraft,
+  } = usePersistentModalDraft<DizForm, Dizimista>('dizimo-digital:cebs:dizimistas:draft', EMPTY_DIZ);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Dizimista | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -357,6 +374,22 @@ export function DizimistasPage() {
 
   const handleSave = async () => {
     if (!form.nome) { toast.warning('Informe o nome'); return; }
+
+    // validate fields
+    if (form.email && !isEmail(form.email)) { toast.warning('E-mail inválido'); return; }
+    if (form.telefone) {
+      try {
+        const pn = parsePhoneNumberFromString(form.telefone, 'BR');
+        if (!pn || !pn.isValid()) { toast.warning('Telefone inválido'); return; }
+      } catch (e) { toast.warning('Telefone inválido'); return; }
+    }
+    let dataNascimentoIso: string | null = null;
+    if (form.data_nascimento) {
+      const parsed = parseDate(form.data_nascimento, 'dd/MM/yyyy', new Date());
+      if (!isValidDate(parsed)) { toast.warning('Data de nascimento inválida'); return; }
+      dataNascimentoIso = formatDate(parsed, 'yyyy-MM-dd');
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -365,13 +398,14 @@ export function DizimistasPage() {
         telefone: form.telefone || null,
         email: form.email || null,
         endereco: form.endereco || null,
-        data_nascimento: form.data_nascimento || null,
+        data_nascimento: dataNascimentoIso || null,
         status: 'ativo' as const,
       };
       if (editTarget) await updateDizimista(editTarget.id, payload);
       else await createDizimista(payload);
       toast.success(editTarget ? 'Dizimista atualizado!' : 'Dizimista cadastrado!');
       setModalOpen(false);
+      clearDraft();
       await load();
     } catch (e: unknown) {
       toast.error('Erro', e instanceof Error ? e.message : '');
@@ -451,9 +485,9 @@ export function DizimistasPage() {
         footer={<><Button variant="secondary" size="sm" onClick={() => setModalOpen(false)}>Cancelar</Button><Button size="sm" onClick={handleSave} loading={saving}>Salvar</Button></>}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Input label="Nome *" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} style={{ gridColumn: '1/-1' }} />
-          <Input label="Telefone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
-          <Input label="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <Input label="Data de Nascimento" type="date" value={form.data_nascimento} onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })} />
+          <Input label="Telefone" mask="phone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
+          <Input label="E-mail" mask="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Input label="Data de Nascimento" mask="date" value={form.data_nascimento} onChange={(e) => setForm({ ...form, data_nascimento: e.target.value })} />
           <Input label="Endereço" value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} style={{ gridColumn: '1/-1' }} />
         </div>
       </Modal>
@@ -476,9 +510,15 @@ export function ConselheirosPage() {
   const [conselheiros, setConselheiros] = useState<ConselheiroComunitario[]>([]);
   const [pastorais, setPastorais] = useState<PastoralMovimento[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<ConselheiroComunitario | null>(null);
-  const [form, setForm] = useState<ConselForm>(EMPTY_CON);
+  const {
+    modalOpen,
+    setModalOpen,
+    editTarget,
+    setEditTarget,
+    form,
+    setForm,
+    clearDraft,
+  } = usePersistentModalDraft<ConselForm, ConselheiroComunitario>('dizimo-digital:cebs:conselheiros:draft', EMPTY_CON);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ConselheiroComunitario | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -514,6 +554,7 @@ export function ConselheirosPage() {
       else await createConselheiro(payload);
       toast.success(editTarget ? 'Atualizado!' : 'Conselheiro cadastrado!');
       setModalOpen(false);
+      clearDraft();
       await load();
     } catch (e: unknown) {
       toast.error('Erro', e instanceof Error ? e.message : '');
@@ -589,8 +630,8 @@ export function ConselheirosPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Input label="Nome *" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} style={{ gridColumn: '1/-1' }} />
           <Input label="Cargo" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
-          <Input label="Telefone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
-          <Input label="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Input label="Telefone" mask="phone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
+          <Input label="E-mail" mask="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <Select label="Pastoral/Movimento" value={form.pastoral_movimento_id}
             onChange={(e) => setForm({ ...form, pastoral_movimento_id: e.target.value })}
             options={[{ value: '', label: '— Nenhum —' }, ...pastorais.map((p) => ({ value: p.id, label: p.nome }))]}

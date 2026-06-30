@@ -417,6 +417,110 @@ AS $$
   SELECT lower(coalesce(auth.jwt() ->> 'email', ''))
 $$;
 
+CREATE OR REPLACE FUNCTION public.is_admin_email()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT exists (
+    select 1
+    from public.administradores a
+    where lower(a.email) = public.current_auth_email()
+  )
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_access_paroquia(p_paroquia_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT public.is_admin_email()
+    OR exists (
+      select 1
+      from public.paroquias p
+      where p.id = p_paroquia_id
+        and (
+          lower(p.email) = public.current_auth_email()
+          OR lower(coalesce(p.email_login_secretaria, '')) = public.current_auth_email()
+        )
+    )
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_access_ceb(p_ceb_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT public.is_admin_email()
+    OR exists (
+      select 1
+      from public.cebs c
+      where c.id = p_ceb_id
+        and (
+          lower(coalesce(c.email_login, '')) = public.current_auth_email()
+          OR public.can_access_paroquia(c.paroquia_id)
+        )
+    )
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_access_alerta(p_paroquia_id uuid, p_ceb_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT public.is_admin_email()
+    OR exists (
+      select 1
+      from public.cebs c
+      join public.paroquias p on p.id = c.paroquia_id
+      where c.id = p_ceb_id
+        and p.id = p_paroquia_id
+        and (
+          lower(coalesce(c.email_login, '')) = public.current_auth_email()
+          OR lower(p.email) = public.current_auth_email()
+          OR lower(coalesce(p.email_login_secretaria, '')) = public.current_auth_email()
+        )
+    )
+$$;
+
+CREATE OR REPLACE FUNCTION public.validate_doacao_ceb_consistency()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.dizimista_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1
+    FROM public.dizimistas d
+    WHERE d.id = NEW.dizimista_id
+      AND d.ceb_id = NEW.ceb_id
+  ) THEN
+    RAISE EXCEPTION 'dizimista_id precisa pertencer a mesma CEB do lançamento';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.validate_alerta_paroquia_ceb_consistency()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  ceb_paroquia_id uuid;
+BEGIN
+  SELECT c.paroquia_id
+    INTO ceb_paroquia_id
+  FROM public.cebs c
+  WHERE c.id = NEW.ceb_id;
+
+  IF ceb_paroquia_id IS NULL OR ceb_paroquia_id <> NEW.paroquia_id THEN
+    RAISE EXCEPTION 'paroquia_id precisa corresponder à paróquia da CEB';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
 ALTER TABLE public.administradores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.paroquias ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.configuracoes_paroquias ENABLE ROW LEVEL SECURITY;
@@ -451,49 +555,63 @@ DROP POLICY IF EXISTS paroquias_update_auth ON public.paroquias;
 DROP POLICY IF EXISTS paroquias_delete_auth ON public.paroquias;
 CREATE POLICY paroquias_select_auth ON public.paroquias
   FOR SELECT TO authenticated
-  USING (
-    exists (
-      select 1
-      from public.administradores a
-      where lower(a.email) = public.current_auth_email()
-    )
-    OR lower(email) = public.current_auth_email()
+  USING (public.can_access_ceb(ceb_id));
     OR lower(coalesce(email_login_secretaria, '')) = public.current_auth_email()
-  );
+  FOR INSERT TO authenticated WITH CHECK (public.can_access_ceb(ceb_id));
 CREATE POLICY paroquias_insert_auth ON public.paroquias
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    exists (
-      select 1
-      from public.administradores a
-      where lower(a.email) = public.current_auth_email()
-    )
-    OR lower(email) = public.current_auth_email()
-    OR lower(coalesce(email_login_secretaria, '')) = public.current_auth_email()
-  );
-CREATE POLICY paroquias_update_auth ON public.paroquias
   FOR UPDATE TO authenticated
-  USING (
-    exists (
-      select 1
-      from public.administradores a
-      where lower(a.email) = public.current_auth_email()
-    )
-    OR lower(email) = public.current_auth_email()
-    OR lower(coalesce(email_login_secretaria, '')) = public.current_auth_email()
-  )
+  USING (public.can_access_ceb(ceb_id))
+  WITH CHECK (public.can_access_ceb(ceb_id));
   WITH CHECK (
-    exists (
+  FOR DELETE TO authenticated USING (public.can_access_ceb(ceb_id));
       select 1
       from public.administradores a
       where lower(a.email) = public.current_auth_email()
-    )
+  FOR SELECT TO authenticated USING (public.can_access_ceb(ceb_id));
     OR lower(email) = public.current_auth_email()
-    OR lower(coalesce(email_login_secretaria, '')) = public.current_auth_email()
+  FOR INSERT TO authenticated WITH CHECK (public.can_access_ceb(ceb_id));
   );
-CREATE POLICY paroquias_delete_auth ON public.paroquias
+  FOR UPDATE TO authenticated
+  USING (public.can_access_ceb(ceb_id))
+  WITH CHECK (public.can_access_ceb(ceb_id));
+  FOR UPDATE TO authenticated
+  FOR DELETE TO authenticated USING (public.can_access_ceb(ceb_id));
+
+DROP TRIGGER IF EXISTS trg_doacoes_validate_ceb_consistency ON public.doacoes;
+CREATE TRIGGER trg_doacoes_validate_ceb_consistency
+  BEFORE INSERT OR UPDATE ON public.doacoes
+  FOR EACH ROW
+  EXECUTE FUNCTION public.validate_doacao_ceb_consistency();
+    exists (
+      select 1
+      from public.administradores a
+  FOR SELECT TO authenticated USING (public.can_access_ceb(ceb_id));
+    )
+  FOR INSERT TO authenticated WITH CHECK (public.can_access_ceb(ceb_id));
+    OR lower(coalesce(email_login_secretaria, '')) = public.current_auth_email()
+  FOR UPDATE TO authenticated
+  USING (public.can_access_ceb(ceb_id))
+  WITH CHECK (public.can_access_ceb(ceb_id));
+  WITH CHECK (
+  FOR DELETE TO authenticated USING (public.can_access_ceb(ceb_id));
+      select 1
+      from public.administradores a
+      where lower(a.email) = public.current_auth_email()
+  FOR SELECT TO authenticated USING (public.can_access_alerta(paroquia_id, ceb_id));
+    OR lower(email) = public.current_auth_email()
+  FOR INSERT TO authenticated WITH CHECK (public.can_access_alerta(paroquia_id, ceb_id));
+  );
+  FOR UPDATE TO authenticated
+  USING (public.can_access_alerta(paroquia_id, ceb_id))
+  WITH CHECK (public.can_access_alerta(paroquia_id, ceb_id));
   FOR DELETE TO authenticated
-  USING (
+  FOR DELETE TO authenticated USING (public.can_access_alerta(paroquia_id, ceb_id));
+
+DROP TRIGGER IF EXISTS trg_alertas_validate_paroquia_ceb_consistency ON public.alertas_percentuais;
+CREATE TRIGGER trg_alertas_validate_paroquia_ceb_consistency
+  BEFORE INSERT OR UPDATE ON public.alertas_percentuais
+  FOR EACH ROW
+  EXECUTE FUNCTION public.validate_alerta_paroquia_ceb_consistency();
     exists (
       select 1
       from public.administradores a

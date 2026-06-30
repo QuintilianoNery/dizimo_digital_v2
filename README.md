@@ -175,19 +175,3 @@ Se quiser avançar com RSBuild, a estrutura atual facilita a extração — cada
 | `relation does not exist` | Schema não foi rodado | Execute o `database/supabase.sql` no SQL Editor |
 | Usuário logado mas sem dados | E-mail com case diferente | O app já usa `.ilike()` e `.toLowerCase()` — verifique o e-mail no Auth |
 ---
-
-## 📋 Features a serem implementadas
-- [ ] Tela fica atualizando toda a vez que sai da tela e volta para a página, quando está com um modal de cadastro aberto o modal está sendo fechado pois a tela atualiza
-- [ ] Não deve ser possível excluir uma paroquia que tem cebs vinculadas, deve apresentar uma mensagem de alerta informando que não é possível excluir a paroquia pois existem cebs vinculadas a ela
-- [ ] Não deve ser possível excluir uma cebs que tem dizimistas vinculados, deve apresentar uma mensagem de alerta informando que não é possível excluir a cebs pois existem dizimistas vinculados a ela e lançamentos de doações vinculados a ela.
-- [ ] Não deve ser possível excluir um dizimista que tem lançamentos de doações vinculados, deve apresentar uma mensagem de alerta informando que não é possível excluir o dizimista pois existem lançamentos de doações vinculados a ele.
-- [ ] Alteração de senha em cada cadastro, administrador, paroquial e cebs
-- [ ] Se quiser, eu posso fazer a próxima etapa e revisar/corrigir as policies do Supabase para deixar a proteção de verdade mais sólida.
-- [ ] Notificação para as cebs quando alterar o valor do percentual de repasse de dizimo e de ofertas para a paroquia
-- [ ] Dashboard da Cebs com total de Dizimo, total de Doações, total de ofertas, total de repasse para paroquia(Dizimo, oferta com o percentual que foi calculado aquele repasse), com base na configuração de percentual de repasse
-- [ ] Dashboard da Paroquia com total de Dizimo, total de Doações, total de ofertas, total de repasse recebido das cebs
-- [ ] Notificação na tela de Dashboard Cebs quando tiver um dizimista fazendo aniversário. Deve apresentar uma mensagem de alerta com a quantidade de aniversariantes do mes e um botão para ir para a tela de aniversariantes do mês
-- [ ] Tela de aniversariantes do mês, apresentando os aniversariantes do mês em uma lista com nome, data de nascimento e telefone
-- [ ] Relatório de doações, com filtros por data, valor, tipo (dizimo, oferta, outro), e exportação para CSV
-- [ ] Inclusão de logomarca pela tela de configuração em cada cadastro administrador, paroquial e cebs
-- [ ] Dashboard do Admin com total de Paroquias, total de Cebs, total de Dizimistas

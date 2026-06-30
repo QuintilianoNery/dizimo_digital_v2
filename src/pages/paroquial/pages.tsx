@@ -3,6 +3,7 @@
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
+import { parse as parseDate, format as formatDate, isValid as isValidDate } from 'date-fns';
 import { Plus, Pencil, Trash2, Users, BarChart3 } from 'lucide-react';
 import { listCebs, createCeb, updateCeb, deleteCeb } from '@/services/ceb.service';
 import { getResumoParoquial } from '@/services/doacao.service';
@@ -16,6 +17,7 @@ import {
   Button, Modal, Input, Badge, ConfirmDialog, EmptyState, Spinner, Card, useToast, Select,
 } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePersistentModalDraft } from '@/hooks/usePersistentModalDraft';
 
 // ── Dashboard Paroquial ───────────────────────────────────────────────────────
 
@@ -66,9 +68,15 @@ export function CEBsPage() {
   const toast = useToast();
   const [cebs, setCebs] = useState<Ceb[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Ceb | null>(null);
-  const [form, setForm] = useState<CebForm>(EMPTY_CEB);
+  const {
+    modalOpen,
+    setModalOpen,
+    editTarget,
+    setEditTarget,
+    form,
+    setForm,
+    clearDraft,
+  } = usePersistentModalDraft<CebForm, Ceb>('dizimo-digital:paroquial:cebs:draft', EMPTY_CEB);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Ceb | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -104,6 +112,7 @@ export function CEBsPage() {
       }
       toast.success(editTarget ? 'CEB atualizada!' : 'CEB criada!');
       setModalOpen(false);
+      clearDraft();
       await load();
     } catch (e: unknown) {
       toast.error('Erro ao salvar', e instanceof Error ? e.message : '');
@@ -172,9 +181,9 @@ export function CEBsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Input label="Código *" value={form.codigo_ceb} onChange={(e) => setForm({ ...form, codigo_ceb: e.target.value })} disabled={!!editTarget} />
           <Input label="Nome *" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-          <Input label="E-mail Login" value={form.email_login} onChange={(e) => setForm({ ...form, email_login: e.target.value })} />
+          <Input label="E-mail Login" mask="email" value={form.email_login} onChange={(e) => setForm({ ...form, email_login: e.target.value })} />
           {!editTarget && <Input label="Senha" type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} />}
-          <Input label="Telefone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
+          <Input label="Telefone" mask="phone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
         </div>
       </Modal>
 
@@ -190,10 +199,18 @@ export function PastoraisPage() {
   const toast = useToast();
   const [pastorais, setPastorais] = useState<PastoralMovimento[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<PastoralMovimento | null>(null);
-  const [nome, setNome] = useState('');
-  const [tipo, setTipo] = useState<'pastoral' | 'movimento'>('pastoral');
+  const {
+    modalOpen,
+    setModalOpen,
+    editTarget,
+    setEditTarget,
+    form,
+    setForm,
+    clearDraft,
+  } = usePersistentModalDraft<{ nome: string; tipo: 'pastoral' | 'movimento' }, PastoralMovimento>(
+    'dizimo-digital:paroquial:pastorais:draft',
+    { nome: '', tipo: 'pastoral' },
+  );
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<PastoralMovimento | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -208,13 +225,14 @@ export function PastoraisPage() {
   useEffect(() => { load(); }, []);
 
   const handleSave = async () => {
-    if (!nome) { toast.warning('Informe o nome'); return; }
+    if (!form.nome) { toast.warning('Informe o nome'); return; }
     setSaving(true);
     try {
-      if (editTarget) await updatePastoral(editTarget.id, { nome, tipo });
-      else await createPastoral({ nome, tipo, status: 'ativo' });
+      if (editTarget) await updatePastoral(editTarget.id, { nome: form.nome, tipo: form.tipo });
+      else await createPastoral({ nome: form.nome, tipo: form.tipo, status: 'ativo' });
       toast.success(editTarget ? 'Atualizado!' : 'Criado!');
       setModalOpen(false);
+      clearDraft();
       await load();
     } catch (e: unknown) {
       toast.error('Erro', e instanceof Error ? e.message : '');
@@ -225,7 +243,7 @@ export function PastoraisPage() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>Pastorais e Movimentos</h1>
-        <Button icon={<Plus size={14} />} onClick={() => { setEditTarget(null); setNome(''); setTipo('pastoral'); setModalOpen(true); }}>Novo</Button>
+        <Button icon={<Plus size={14} />} onClick={() => { setEditTarget(null); setForm({ nome: '', tipo: 'pastoral' }); setModalOpen(true); }}>Novo</Button>
       </div>
 
       {loading ? <Spinner size={28} /> : pastorais.length === 0 ? <EmptyState title="Nenhuma pastoral cadastrada" /> : (
@@ -247,7 +265,7 @@ export function PastoraisPage() {
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <Button variant="ghost" size="sm" icon={<Pencil size={12} />}
-                        onClick={() => { setEditTarget(p); setNome(p.nome); setTipo(p.tipo); setModalOpen(true); }} />
+                        onClick={() => { setEditTarget(p); setForm({ nome: p.nome, tipo: p.tipo }); setModalOpen(true); }} />
                       <Button variant="ghost" size="sm" icon={<Trash2 size={12} />} onClick={() => setDeleteTarget(p)} style={{ color: 'var(--red)' }} />
                     </div>
                   </td>
@@ -261,8 +279,8 @@ export function PastoraisPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editTarget ? 'Editar' : 'Nova Pastoral/Movimento'}
         footer={<><Button variant="secondary" size="sm" onClick={() => setModalOpen(false)}>Cancelar</Button><Button size="sm" onClick={handleSave} loading={saving}>Salvar</Button></>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Input label="Nome *" value={nome} onChange={(e) => setNome(e.target.value)} />
-          <Select label="Tipo" value={tipo} onChange={(e) => setTipo(e.target.value as 'pastoral' | 'movimento')}
+          <Input label="Nome *" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+          <Select label="Tipo" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value as 'pastoral' | 'movimento' })}
             options={[{ value: 'pastoral', label: 'Pastoral' }, { value: 'movimento', label: 'Movimento' }]} />
         </div>
       </Modal>
@@ -292,14 +310,27 @@ export function ConfiguracoesParoquialPage() {
 
   const handleSave = async () => {
     if (!user?.paroquiaId) return;
+    // normalize vigente_desde (accepts dd/MM/yyyy from mask)
     setSaving(true);
     try {
+      let vigenteDesdeIso = config.vigente_desde ?? new Date().toISOString().split('T')[0];
+      if (config.vigente_desde) {
+        // try dd/MM/yyyy
+        try {
+          const parsed = parseDate(config.vigente_desde, 'dd/MM/yyyy', new Date());
+          if (isValidDate(parsed)) vigenteDesdeIso = formatDate(parsed, 'yyyy-MM-dd');
+          else {
+            // if not valid as dd/MM/yyyy, keep as-is (maybe already ISO)
+            vigenteDesdeIso = config.vigente_desde;
+          }
+        } catch { vigenteDesdeIso = config.vigente_desde; }
+      }
       await upsertConfiguracaoParoquia(user.paroquiaId, {
         percentual_dizimo_cebs: config.percentual_dizimo_cebs ?? 30,
         percentual_oferta_cebs: config.percentual_oferta_cebs ?? 20,
         percentual_curia_diocesana: config.percentual_curia_diocesana ?? 5,
         percentual_diocese: config.percentual_diocese ?? 10,
-        vigente_desde: config.vigente_desde ?? new Date().toISOString().split('T')[0],
+        vigente_desde: vigenteDesdeIso,
         vigente_ate: config.vigente_ate ?? null,
         ativa: true,
       });
@@ -327,7 +358,7 @@ export function ConfiguracoesParoquialPage() {
               value={String(config[field] ?? '')}
               onChange={(e) => setConfig({ ...config, [field]: parseFloat(e.target.value) })} />
           ))}
-          <Input label="Vigente desde" type="date" value={config.vigente_desde ?? ''}
+          <Input label="Vigente desde" mask="date" value={config.vigente_desde ?? ''}
             onChange={(e) => setConfig({ ...config, vigente_desde: e.target.value })} style={{ gridColumn: '1/-1' }} />
         </div>
         <Button onClick={handleSave} loading={saving} style={{ marginTop: 16 }}>Salvar</Button>
@@ -372,8 +403,8 @@ export function ConfiguracoesCEBPage() {
       <Card style={{ maxWidth: 480 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Input label="Nome da CEB" value={ceb.nome} onChange={(e) => setCeb({ ...ceb, nome: e.target.value })} />
-          <Input label="E-mail de Login" value={ceb.email_login} disabled hint="Para alterar, contate a secretaria paroquial" />
-          <Input label="Telefone" value={ceb.telefone} onChange={(e) => setCeb({ ...ceb, telefone: e.target.value })} />
+          <Input label="E-mail de Login" mask="email" value={ceb.email_login} disabled hint="Para alterar, contate a secretaria paroquial" />
+          <Input label="Telefone" mask="phone" value={ceb.telefone} onChange={(e) => setCeb({ ...ceb, telefone: e.target.value })} />
           <Button onClick={handleSave} loading={saving} style={{ alignSelf: 'flex-start' }}>Salvar</Button>
         </div>
       </Card>
