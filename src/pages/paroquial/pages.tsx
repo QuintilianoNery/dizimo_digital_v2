@@ -3,6 +3,7 @@
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
+import { parse as parseDate, format as formatDate, isValid as isValidDate } from 'date-fns';
 import { Plus, Pencil, Trash2, Users, BarChart3 } from 'lucide-react';
 import { listCebs, createCeb, updateCeb, deleteCeb } from '@/services/ceb.service';
 import { getResumoParoquial } from '@/services/doacao.service';
@@ -180,9 +181,9 @@ export function CEBsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Input label="Código *" value={form.codigo_ceb} onChange={(e) => setForm({ ...form, codigo_ceb: e.target.value })} disabled={!!editTarget} />
           <Input label="Nome *" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-          <Input label="E-mail Login" value={form.email_login} onChange={(e) => setForm({ ...form, email_login: e.target.value })} />
+          <Input label="E-mail Login" mask="email" value={form.email_login} onChange={(e) => setForm({ ...form, email_login: e.target.value })} />
           {!editTarget && <Input label="Senha" type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} />}
-          <Input label="Telefone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
+          <Input label="Telefone" mask="phone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
         </div>
       </Modal>
 
@@ -309,14 +310,27 @@ export function ConfiguracoesParoquialPage() {
 
   const handleSave = async () => {
     if (!user?.paroquiaId) return;
+    // normalize vigente_desde (accepts dd/MM/yyyy from mask)
     setSaving(true);
     try {
+      let vigenteDesdeIso = config.vigente_desde ?? new Date().toISOString().split('T')[0];
+      if (config.vigente_desde) {
+        // try dd/MM/yyyy
+        try {
+          const parsed = parseDate(config.vigente_desde, 'dd/MM/yyyy', new Date());
+          if (isValidDate(parsed)) vigenteDesdeIso = formatDate(parsed, 'yyyy-MM-dd');
+          else {
+            // if not valid as dd/MM/yyyy, keep as-is (maybe already ISO)
+            vigenteDesdeIso = config.vigente_desde;
+          }
+        } catch { vigenteDesdeIso = config.vigente_desde; }
+      }
       await upsertConfiguracaoParoquia(user.paroquiaId, {
         percentual_dizimo_cebs: config.percentual_dizimo_cebs ?? 30,
         percentual_oferta_cebs: config.percentual_oferta_cebs ?? 20,
         percentual_curia_diocesana: config.percentual_curia_diocesana ?? 5,
         percentual_diocese: config.percentual_diocese ?? 10,
-        vigente_desde: config.vigente_desde ?? new Date().toISOString().split('T')[0],
+        vigente_desde: vigenteDesdeIso,
         vigente_ate: config.vigente_ate ?? null,
         ativa: true,
       });
@@ -344,7 +358,7 @@ export function ConfiguracoesParoquialPage() {
               value={String(config[field] ?? '')}
               onChange={(e) => setConfig({ ...config, [field]: parseFloat(e.target.value) })} />
           ))}
-          <Input label="Vigente desde" type="date" value={config.vigente_desde ?? ''}
+          <Input label="Vigente desde" mask="date" value={config.vigente_desde ?? ''}
             onChange={(e) => setConfig({ ...config, vigente_desde: e.target.value })} style={{ gridColumn: '1/-1' }} />
         </div>
         <Button onClick={handleSave} loading={saving} style={{ marginTop: 16 }}>Salvar</Button>
@@ -389,8 +403,8 @@ export function ConfiguracoesCEBPage() {
       <Card style={{ maxWidth: 480 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Input label="Nome da CEB" value={ceb.nome} onChange={(e) => setCeb({ ...ceb, nome: e.target.value })} />
-          <Input label="E-mail de Login" value={ceb.email_login} disabled hint="Para alterar, contate a secretaria paroquial" />
-          <Input label="Telefone" value={ceb.telefone} onChange={(e) => setCeb({ ...ceb, telefone: e.target.value })} />
+          <Input label="E-mail de Login" mask="email" value={ceb.email_login} disabled hint="Para alterar, contate a secretaria paroquial" />
+          <Input label="Telefone" mask="phone" value={ceb.telefone} onChange={(e) => setCeb({ ...ceb, telefone: e.target.value })} />
           <Button onClick={handleSave} loading={saving} style={{ alignSelf: 'flex-start' }}>Salvar</Button>
         </div>
       </Card>

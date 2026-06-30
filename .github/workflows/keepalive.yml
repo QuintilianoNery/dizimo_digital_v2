@@ -1,0 +1,35 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    # A cada 3 dias, às 09:00 UTC. Margem segura contra o pause de 7 dias.
+    # (Cron de "a cada 6 dias" não é confiável: deixa gap na virada do mês.)
+    - cron: '0 9 */3 * *'
+  workflow_dispatch: # permite rodar manualmente pela aba Actions
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Node 22+ tem WebSocket nativo, exigido pelo @supabase/supabase-js
+          # (realtime-js). Com Node 20 o createClient lança erro na inicialização.
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências (só produção — basta @supabase/supabase-js)
+        run: npm ci --omit=dev
+
+      - name: Rodar keep-alive (inclusão + exclusão)
+        run: node scripts/keepalive.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Avisar se falhar (Supabase pode pausar!)
+        if: failure()
+        run: echo "::warning::Keep-alive falhou — verifique os secrets e a tabela 'keepalive' no Supabase."

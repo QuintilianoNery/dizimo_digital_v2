@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import isEmail from 'validator/lib/isEmail';
+import { cnpj as cnpjValidator } from 'cpf-cnpj-validator';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { Plus, Pencil, Trash2, Church } from 'lucide-react';
 import {
   listParoquias, createParoquia, updateParoquia, deleteParoquia,
@@ -88,6 +91,18 @@ export function ParoquiasPage() {
     }
     setSaving(true);
     try {
+      // format/validate fields
+      if (form.email && !isEmail(form.email)) { toast.warning('E-mail da paróquia inválido'); return; }
+      if (form.email_login_secretaria && !isEmail(form.email_login_secretaria)) { toast.warning('E-mail da secretaria inválido'); return; }
+      if (form.cnpj) {
+        if (!cnpjValidator.isValid(form.cnpj.replace(/\D/g, ''))) { toast.warning('CNPJ inválido'); return; }
+      }
+      if (form.telefone) {
+        try {
+          const pn = parsePhoneNumberFromString(form.telefone, 'BR');
+          if (!pn || !pn.isValid()) { toast.warning('Telefone inválido'); return; }
+        } catch (e) { toast.warning('Telefone inválido'); return; }
+      }
       if (editTarget) {
         await updateParoquia(editTarget.id, {
           nome: form.nome,
@@ -211,12 +226,12 @@ export function ParoquiasPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Input label="Código *" value={form.codigo_paroquia} onChange={(e) => setForm({ ...form, codigo_paroquia: e.target.value })} disabled={!!editTarget} />
           <Input label="Nome *" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-          <Input label="E-mail da Paróquia *" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} style={{ gridColumn: '1/-1' }} />
+          <Input label="E-mail da Paróquia *" mask="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} style={{ gridColumn: '1/-1' }} />
           <Input label="E-mail Login Secretaria" value={form.email_login_secretaria} onChange={(e) => setForm({ ...form, email_login_secretaria: e.target.value })} />
           {!editTarget && <Input label="Senha *" type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} hint="Será criado no Supabase Auth" />}
           <Input label="Pároco" value={form.paroco_nome} onChange={(e) => setForm({ ...form, paroco_nome: e.target.value })} />
-          <Input label="Telefone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
-          <Input label="CNPJ" value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} />
+          <Input label="Telefone" mask="phone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
+          <Input label="CNPJ" mask="cnpj" value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} />
           <Input label="Endereço" value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} style={{ gridColumn: '1/-1' }} />
         </div>
       </Modal>
